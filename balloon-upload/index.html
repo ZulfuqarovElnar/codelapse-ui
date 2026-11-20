@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upload button that floats away</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; overflow: hidden;
+    background: radial-gradient(circle at 50% 30%, #13769c, #061f2d 70%); font-family: system-ui, sans-serif; }
+
+  .up { position: relative; width: 300px; height: 440px; }
+
+  /* Balloon, string and file move together. */
+  .ride { position: absolute; left: 90px; bottom: 120px; width: 120px; height: 320px; transition: opacity .4s; }
+  .balloon { position: absolute; left: 5px; top: 0; width: 110px; height: 130px; border-radius: 50% 50% 48% 48%;
+    background: radial-gradient(circle at 35% 30%, #ff9db4, #ff3d6e 60%, #c4174a);
+    scale: 0; transform-origin: 50% 100%; transition: scale .6s cubic-bezier(.3, 1.6, .5, 1); }
+  .balloon::after { content: ''; position: absolute; left: 49px; bottom: -8px; border: 6px solid transparent; border-bottom-color: #c4174a; }
+  .string { position: absolute; left: 59px; top: 136px; width: 2px; height: 0; background: #ffffffaa; transition: height .4s; }
+  .file { position: absolute; left: 15px; bottom: 0; width: 90px; height: 110px; border-radius: 10px; background: #fff;
+    display: grid; place-items: end center; padding-bottom: 12px; box-sizing: border-box; color: #0b3a50; font: 700 15px system-ui; }
+  .file::before { content: '🖼'; position: absolute; top: 18px; font-size: 38px; }
+
+  .btn { position: absolute; left: 50px; bottom: 20px; width: 200px; height: 72px; border: 0; border-radius: 36px; cursor: pointer;
+    background: #ffd166; color: #0b3a50; font: 800 26px system-ui; }
+
+  .note { position: absolute; left: 0; right: 0; top: 140px; text-align: center; color: #fff;
+    font: 800 30px system-ui; opacity: 0; transition: opacity .3s; }
+
+  .inflate .balloon { scale: 1; }
+  .inflate .string { height: 74px; }
+  .fly .ride { translate: 0 -640px; transition: translate 1.8s cubic-bezier(.5, 0, .8, .6); animation: sway .6s infinite alternate ease-in-out; }
+  @keyframes sway { from { rotate: -4deg } to { rotate: 4deg } }
+  .done .note { opacity: 1; }
+  /* Reset quietly: no transitions while the ride is hidden. */
+  .hide .ride, .hide .ride * { opacity: 0; transition: none; }
+</style>
+</head>
+<body>
+  <div class="up" id="up">
+    <p class="note">✓ Uploaded</p>
+    <div class="ride">
+      <div class="balloon"></div><div class="string"></div><div class="file">photo.png</div>
+    </div>
+    <button class="btn" id="upload">⬆ Upload</button>
+  </div>
+
+<script>
+  const up = document.getElementById('up');
+
+  document.getElementById('upload').addEventListener('click', () => {
+    if (up.className !== 'up') return;
+    up.classList.add('inflate');
+    setTimeout(() => up.classList.add('fly'), 800);
+    setTimeout(() => up.classList.add('done'), 2000);
+    setTimeout(() => (up.className = 'up hide'), 3700);
+    setTimeout(() => (up.className = 'up'), 3800);
+  });
+</script>
+</body>
+</html>

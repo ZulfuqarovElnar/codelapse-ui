@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A toast notification from a real toaster</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; overflow: hidden;
+    background: radial-gradient(circle at 50% 40%, #1f6461, #0a1d20 70%); font-family: system-ui, sans-serif; }
+
+  .toaster { position: relative; width: 300px; height: 250px; margin-top: 120px; cursor: pointer; }
+
+  /* The toast waits inside the toaster, behind its front. Its message is the notification. */
+  .toast { position: absolute; left: 60px; top: 40px; width: 180px; height: 150px; z-index: 1;
+    display: grid; place-items: center; text-align: center;
+    border-radius: 50px 50px 14px 14px; background: #eab66c; box-shadow: inset 0 0 0 10px #b8762f;
+    color: #4a2a0c; font: 800 24px/1.25 system-ui;
+    transition: translate .6s cubic-bezier(.3, 1.6, .5, 1); }
+  .toast span { opacity: 0; transition: opacity .3s; }
+
+  .body { position: absolute; inset: 80px 0 0; z-index: 2; border-radius: 40px 40px 22px 22px;
+    background: linear-gradient(#f4f6f7, #a9b2b6); box-shadow: 0 24px 50px #0008; }
+  .body::before { content: ''; position: absolute; left: 70px; right: 70px; top: -7px; height: 14px;
+    border-radius: 7px; background: #2b3236; transition: background .3s, box-shadow .3s; }
+  .dial { position: absolute; left: 40px; top: 60px; width: 40px; height: 40px; border-radius: 50%;
+    background: #2b3236; box-shadow: 0 0 0 6px #d3d9dc; }
+  .lever { position: absolute; right: -22px; top: 20px; width: 38px; height: 18px; border-radius: 6px;
+    background: #2b3236; transition: translate .25s; }
+
+  .press .lever { translate: 0 80px; }
+  .press .body::before { background: #ff7a2a; box-shadow: 0 0 24px 6px #ff7a2a99; }
+  .pop .toast { translate: 0 -160px; }
+  .pop .toast span { opacity: 1; transition-delay: .35s; }
+</style>
+</head>
+<body>
+  <div class="toaster" id="toaster">
+    <div class="toast"><span>🔔 Changes<br>saved!</span></div>
+    <div class="body"><div class="dial"></div><div class="lever"></div></div>
+  </div>
+
+<script>
+  const toaster = document.getElementById('toaster');
+
+  toaster.addEventListener('click', () => {
+    if (toaster.className !== 'toaster') return;
+    toaster.classList.add('press');
+    setTimeout(() => (toaster.className = 'toaster pop'), 900);
+    setTimeout(() => (toaster.className = 'toaster'), 3400);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deploy button that actually launches</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; overflow: hidden; font-family: system-ui, sans-serif;
+    background:
+      radial-gradient(2px 2px at 20% 30%, #fff8, transparent), radial-gradient(2px 2px at 70% 20%, #fff8, transparent),
+      radial-gradient(2px 2px at 40% 70%, #fff6, transparent), radial-gradient(2px 2px at 85% 60%, #fff6, transparent),
+      radial-gradient(2px 2px at 10% 85%, #fff6, transparent), radial-gradient(2px 2px at 55% 45%, #fff8, transparent),
+      radial-gradient(circle at 50% 110%, #3a3fa8, #0a0b1f 70%); }
+
+  .pad { position: relative; width: 300px; height: 420px; }
+
+  .btn { position: absolute; left: 40px; bottom: 30px; width: 220px; height: 76px; border: 0; border-radius: 38px;
+    background: #7c5cff; color: #fff; font: 800 28px system-ui; cursor: pointer; transition: scale .3s, opacity .3s; }
+
+  .rocket { position: absolute; left: 110px; bottom: 50px; width: 80px; opacity: 0; scale: .4;
+    transform-origin: 50% 100%; transition: opacity .3s, scale .3s; }
+  .flame { transform-origin: 40px 128px; animation: flicker .1s infinite alternate; }
+  @keyframes flicker { to { scale: .8 1.2 } }
+
+  .smoke i { position: absolute; bottom: 20px; left: 130px; width: 40px; height: 40px; border-radius: 50%;
+    background: #d9dcf2; opacity: 0; }
+  @keyframes puff { 0% { opacity: .9; scale: .3 } 100% { opacity: 0; scale: 2; translate: var(--x) -20px } }
+
+  .live { position: absolute; left: 0; right: 0; top: 120px; text-align: center; color: #fff;
+    font: 800 34px system-ui; opacity: 0; translate: 0 10px; transition: opacity .3s, translate .3s; }
+  .live small { display: block; margin-top: 6px; color: #a9b0ff; font: 600 20px ui-monospace, monospace; }
+
+  .go .btn { scale: .5; opacity: 0; }
+  .go .rocket { opacity: 1; scale: 1; animation: shake .06s 10 .3s; }
+  @keyframes shake { 50% { translate: 2px 0 } }
+  .launch .rocket { translate: 0 -720px; transition: translate 1.1s cubic-bezier(.6, 0, .9, .5), opacity .3s, scale .3s; }
+  .launch .smoke i { animation: puff 1.2s ease-out; }
+  .launch .smoke i:nth-child(1) { --x: -70px; }
+  .launch .smoke i:nth-child(2) { --x: 70px; animation-delay: .08s; }
+  .launch .smoke i:nth-child(3) { --x: 0px; animation-delay: .16s; }
+  .ready .live { opacity: 1; translate: 0 0; }
+</style>
+</head>
+<body>
+  <div class="pad" id="pad">
+    <p class="live">✓ Live<small>your-app.dev</small></p>
+    <div class="smoke"><i></i><i></i><i></i></div>
+    <svg class="rocket" viewBox="0 0 80 150">
+      <path class="flame" d="M28 118 Q40 160 52 118 Z" fill="#ffb347"/>
+      <path d="M40 4 Q68 34 62 104 L18 104 Q12 34 40 4 Z" fill="#f2f3ff"/>
+      <circle cx="40" cy="52" r="11" fill="#7c5cff" stroke="#3b2f8f" stroke-width="4"/>
+      <path d="M18 76 L2 110 L20 104 Z M62 76 L78 110 L60 104 Z" fill="#ff5c7a"/>
+      <rect x="26" y="104" width="28" height="14" rx="4" fill="#9aa0c8"/>
+    </svg>
+    <button class="btn" id="deploy">Deploy 🚀</button>
+  </div>
+
+<script>
+  const pad = document.getElementById('pad');
+
+  document.getElementById('deploy').addEventListener('click', () => {
+    if (pad.className !== 'pad') return;
+    pad.classList.add('go');
+    setTimeout(() => pad.classList.add('launch'), 900);
+    setTimeout(() => pad.classList.add('ready'), 1700);
+    // Hide the rocket while it's off screen, then bring it back without a flight down.
+    setTimeout(() => pad.classList.remove('go', 'ready'), 3600);
+    setTimeout(() => pad.classList.remove('launch'), 4000);
+  });
+</script>
+</body>
+</html>

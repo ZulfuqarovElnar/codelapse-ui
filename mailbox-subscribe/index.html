@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subscribe button with a real mailbox</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; overflow: hidden;
+    background: linear-gradient(#ff9a62, #a13c6f 55%, #2b1440); font-family: system-ui, sans-serif; }
+
+  .scene { position: relative; width: 360px; height: 440px; }
+
+  .post { position: absolute; left: 164px; top: 170px; width: 26px; height: 140px; background: #5b3b22; }
+  .box { position: absolute; left: 90px; top: 60px; width: 170px; height: 120px; border-radius: 60px 60px 12px 12px;
+    background: linear-gradient(#3b82f6, #2357b8); box-shadow: 0 16px 30px #0006; }
+  .box::before { content: ''; position: absolute; left: 30px; right: 30px; top: 50px; height: 10px; border-radius: 5px; background: #12285a; }
+
+  /* The flag lies down until a letter arrives. */
+  .flag { position: absolute; left: 254px; top: 64px; width: 8px; height: 90px; background: #d9d9d9;
+    transform-origin: 50% 100%; rotate: 90deg; transition: rotate .5s cubic-bezier(.3, 1.8, .5, 1); }
+  .flag::before { content: ''; position: absolute; left: 8px; top: 0; width: 44px; height: 30px; background: #ff3b3b; }
+
+  .form { position: absolute; left: 0; right: 0; top: 340px; display: flex; gap: 10px; }
+  .email { flex: 1; padding: 0 16px; border-radius: 14px; background: #fff; color: #333; font: 500 18px/60px system-ui; }
+  .btn { width: 150px; height: 60px; border: 0; border-radius: 14px; cursor: pointer;
+    background: #1d1029; color: #fff; font: 800 19px system-ui; transition: background .3s; }
+
+  .letter { position: absolute; left: 265px; top: 352px; width: 48px; height: 34px; border-radius: 4px; opacity: 0;
+    background: linear-gradient(155deg, transparent 49%, #d5d5d5 50% 54%, transparent 55%), linear-gradient(25deg, transparent 49%, #d5d5d5 50% 54%, transparent 55%), #fff; }
+  @keyframes fly { 0% { opacity: 1; translate: 0 0 } 55% { translate: -60px -300px; rotate: -20deg }
+    100% { opacity: 1; translate: -114px -240px; scale: .6; rotate: 0deg } }
+
+  .send .letter { animation: fly .9s ease-in-out forwards; }
+  .got .letter { opacity: 0; }
+  .got .flag { rotate: 0deg; }
+  .got .btn { background: #22a35a; }
+  .got .box { animation: bump .3s; }
+  @keyframes bump { 50% { scale: 1.06 } }
+</style>
+</head>
+<body>
+  <div class="scene" id="scene">
+    <div class="post"></div><div class="flag"></div><div class="box"></div>
+    <div class="form"><div class="email">anna@mail.com</div><button class="btn" id="sub">Subscribe</button></div>
+    <div class="letter"></div>
+  </div>
+
+<script>
+  const scene = document.getElementById('scene');
+  const btn = document.getElementById('sub');
+
+  btn.addEventListener('click', () => {
+    if (scene.className !== 'scene') return;
+    scene.classList.add('send');
+    setTimeout(() => { scene.className = 'scene got'; btn.textContent = '✓ Subscribed'; }, 900);
+    setTimeout(() => { scene.className = 'scene'; btn.textContent = 'Subscribe'; }, 3400);
+  });
+</script>
+</body>
+</html>

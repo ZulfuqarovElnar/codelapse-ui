@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delete button that shreds the file</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; overflow: hidden;
+    background: radial-gradient(circle at 50% 35%, #4b2466, #13091d 70%); font-family: system-ui, sans-serif; }
+
+  .shred { position: relative; width: 320px; height: 440px; }
+
+  /* The file slides down into a clipped area that ends at the shredder's slot. */
+  .feed { position: absolute; left: 0; right: 0; top: 0; height: 196px; overflow: hidden; }
+  .file { position: absolute; left: 80px; top: 6px; width: 160px; height: 190px; box-sizing: border-box;
+    padding: 22px 18px; border-radius: 12px; background: #fff; transition: translate 1.1s ease-in; }
+  .file i { display: block; height: 10px; margin-bottom: 13px; border-radius: 5px; background: #ddd5e6; }
+  .file i:first-child { width: 60%; background: #ff5c8a; }
+
+  .machine { position: absolute; left: 20px; top: 190px; width: 280px; height: 96px; z-index: 2;
+    border-radius: 18px; background: linear-gradient(#3b3b48, #1d1d26); box-shadow: 0 20px 40px #0008;
+    display: grid; place-items: center; }
+  .machine::before { content: ''; position: absolute; left: 50px; right: 50px; top: 6px; height: 8px;
+    border-radius: 4px; background: #000; }
+  .del { border: 0; padding: 14px 28px; border-radius: 999px; cursor: pointer;
+    background: #ff3b5c; color: #fff; font: 800 24px system-ui; }
+
+  /* Strips come out under the machine. */
+  .strips { position: absolute; left: 86px; top: 286px; width: 148px; height: 150px; overflow: hidden;
+    display: flex; gap: 4px; }
+  .strips i { flex: 1; height: 120px; translate: 0 -100%;
+    background: repeating-linear-gradient(#fff 0 22px, #ddd5e6 22px 32px); }
+  @keyframes strip { 0% { translate: 0 -100% } 60% { translate: 0 0; opacity: 1 }
+    100% { translate: 0 40px; rotate: var(--r); opacity: 0 } }
+
+  .note { position: absolute; left: 0; right: 0; top: 60px; text-align: center; color: #fff;
+    font: 700 24px system-ui; opacity: 0; transition: opacity .3s; }
+
+  .go .file { translate: 0 200px; }
+  .go .machine { animation: buzz .08s 14; }
+  .go .strips i { animation: strip 1.3s calc(.25s + var(--d)) ease-in forwards; }
+  .done .note { opacity: 1; }
+  @keyframes buzz { 50% { translate: 2px 0 } }
+</style>
+</head>
+<body>
+  <div class="shred" id="shred">
+    <div class="feed"><div class="file"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+    <p class="note">old-logo.png deleted</p>
+    <div class="machine"><button class="del" id="del">🗑 Delete</button></div>
+    <div class="strips"></div>
+  </div>
+
+<script>
+  const shred = document.getElementById('shred');
+  const strips = shred.querySelector('.strips');
+
+  for (let i = 0; i < 9; i++) {
+    const s = document.createElement('i');
+    s.style.setProperty('--d', i * 0.04 + 's');
+    s.style.setProperty('--r', (i % 2 ? 6 : -6) + 'deg');
+    strips.append(s);
+  }
+
+  document.getElementById('del').addEventListener('click', () => {
+    if (shred.className !== 'shred') return;
+    shred.classList.add('go');
+    setTimeout(() => shred.classList.add('done'), 1700);
+    setTimeout(() => (shred.className = 'shred'), 3600);
+  });
+</script>
+</body>
+</html>
