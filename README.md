@@ -16,5 +16,6 @@ Open it in a browser, or copy the parts you need.
 | Deploy button that actually launches 🚀 | [rocket-deploy](rocket-deploy) |
 | Upload button that floats away 🎈 | [balloon-upload](balloon-upload) |
 | Subscribe button with a real mailbox 📬 | [mailbox-subscribe](mailbox-subscribe) |
+| 5-star rating with a wanted level 🚨 | [wanted-stars](wanted-stars) |
 
 MIT licensed. Use them in your own projects, paid or free.
