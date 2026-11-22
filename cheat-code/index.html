@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cheat code input</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; overflow: hidden; color: #fff;
+    background: repeating-linear-gradient(#ffffff06 0 2px, transparent 2px 4px), radial-gradient(circle at 50% 45%, #0f3d24, #050c08 70%);
+    font-family: system-ui, sans-serif; }
+
+  .cheat { position: relative; width: 380px; text-align: center; }
+  label { display: block; margin-bottom: 14px; color: #8fe3b0; font: 700 18px system-ui; letter-spacing: .2em; text-transform: uppercase; }
+  .field { height: 70px; border-radius: 14px; background: #000a; box-shadow: inset 0 0 0 2px #2bd46f;
+    display: grid; place-items: center; cursor: pointer; font: 800 32px ui-monospace, monospace; letter-spacing: .12em; color: #fff; }
+  .field::after { content: ''; display: inline-block; width: 4px; height: 34px; margin-left: 4px; vertical-align: -6px;
+    background: #2bd46f; animation: caret .8s steps(1) infinite; }
+  @keyframes caret { 50% { opacity: 0 } }
+
+  /* The confirmation glitches in: two coloured copies jitter around the white text. */
+  .ok { position: absolute; left: 0; right: 0; top: 150px; margin: 0; font: 900 40px/1 system-ui; text-transform: uppercase; opacity: 0; }
+  .ok::before, .ok::after { content: attr(data-text); position: absolute; inset: 0; }
+  .ok::before { color: #ff2d6a; z-index: -1; }
+  .ok::after { color: #2de2ff; z-index: -1; }
+  .on .ok { opacity: 1; animation: in .25s steps(3); }
+  .on .ok::before { animation: jit .12s steps(2) infinite; }
+  .on .ok::after { animation: jit .12s steps(2) infinite reverse; }
+  @keyframes in { from { scale: 1.6; opacity: 0 } }
+  @keyframes jit { 0% { translate: -3px 1px } 50% { translate: 3px -1px } }
+  .on .field { box-shadow: inset 0 0 0 2px #2bd46f, 0 0 40px #2bd46f88; }
+</style>
+</head>
+<body>
+  <div class="cheat" id="cheat">
+    <label>Enter cheat code</label>
+    <div class="field" id="field"></div>
+    <p class="ok" data-text="Cheat activated">Cheat activated</p>
+  </div>
+
+<script>
+  const cheat = document.getElementById('cheat');
+  const field = document.getElementById('field');
+  const CODE = 'MONEYPLEASE';
+  let busy = false;
+
+  field.addEventListener('click', () => {
+    if (busy) return;
+    busy = true;
+    [...CODE].forEach((ch, i) => setTimeout(() => (field.textContent += ch), 80 + i * 75));
+    setTimeout(() => cheat.classList.add('on'), 80 + CODE.length * 75 + 150);
+    setTimeout(() => { cheat.classList.remove('on'); field.textContent = ''; busy = false; }, 3600);
+  });
+</script>
+</body>
+</html>

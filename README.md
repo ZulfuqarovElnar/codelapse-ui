@@ -17,5 +17,8 @@ Open it in a browser, or copy the parts you need.
 | Upload button that floats away 🎈 | [balloon-upload](balloon-upload) |
 | Subscribe button with a real mailbox 📬 | [mailbox-subscribe](mailbox-subscribe) |
 | 5-star rating with a wanted level 🚨 | [wanted-stars](wanted-stars) |
+| Mission-complete checkout 💰 | [mission-checkout](mission-checkout) |
+| Car radio station switcher 📻 | [radio-dial](radio-dial) |
+| Cheat code input 🎮 | [cheat-code](cheat-code) |
 
 MIT licensed. Use them in your own projects, paid or free.
