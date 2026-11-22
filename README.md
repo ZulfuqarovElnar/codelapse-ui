@@ -20,5 +20,6 @@ Open it in a browser, or copy the parts you need.
 | Mission-complete checkout 💰 | [mission-checkout](mission-checkout) |
 | Car radio station switcher 📻 | [radio-dial](radio-dial) |
 | Cheat code input 🎮 | [cheat-code](cheat-code) |
+| Scroll zoom reveal in pure CSS (the GTA 6 website effect) 🌴 | [scroll-zoom-reveal](scroll-zoom-reveal) |
 
 MIT licensed. Use them in your own projects, paid or free.
