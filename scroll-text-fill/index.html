@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Headline that fills with colour as you scroll</title>
+<style>
+  body { margin: 0; background: radial-gradient(120% 80% at 50% 0%, #3a1450, #12081f 60%); color: #fff; font-family: system-ui, sans-serif; }
+  .space { height: 75vh; display: grid; place-items: end center; padding-bottom: 6vh; box-sizing: border-box;
+    font: 700 18px system-ui; letter-spacing: .25em; color: #ffffff80; }
+  .space.end { height: 38vh; }
+  .lines { padding: 0 6vw; }
+
+  /* Each line is text-coloured by its background: a faint base, with a sunset gradient on top
+     whose width grows from 0% to 100% while the line crosses the screen. */
+  .lines p { margin: 0; font: 900 clamp(48px, 14vw, 130px)/.92 system-ui, sans-serif; letter-spacing: -.03em; text-transform: uppercase;
+    color: transparent; -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(90deg, #ff3d9a, #ff7a45, #ffd25a), linear-gradient(#ffffff26, #ffffff26);
+    background-size: 0% 100%, 100% 100%; background-repeat: no-repeat;
+    animation: fill linear both, slide linear both;
+    animation-timeline: view();
+    animation-range: cover 15% cover 50%; }
+  .lines p:nth-child(even) { --from: 12%; text-align: right; }
+  @keyframes fill { to { background-size: 100% 100%, 100% 100% } }
+  @keyframes slide { from { translate: var(--from, -12%) 0 } }
+
+  .caption { margin: 8vh 0 0; text-align: center; font: 600 16px ui-monospace, monospace; color: #ffb0d9; }
+</style>
+</head>
+<body>
+  <div class="space">SCROLL ↓</div>
+  <div class="lines">
+    <p>The sun</p>
+    <p>never sets</p>
+    <p>on a bad</p>
+    <p>idea.</p>
+  </div>
+  <p class="caption">background-clip: text + view() · 0 lines of JS</p>
+  <div class="space end"></div>
+</body>
+</html>

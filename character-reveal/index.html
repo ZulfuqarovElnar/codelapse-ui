@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Character card that opens as you scroll</title>
+<style>
+  body { margin: 0; height: 300vh; background: #12081f; color: #fff; font-family: system-ui, sans-serif; }
+  .scene { position: sticky; top: 0; height: 100vh; overflow: hidden; display: grid; place-items: center; }
+
+  /* Every animation below follows the page scroll instead of the clock. Longhands only:
+     the animation shorthand would reset animation-timeline back to the clock. */
+  .scene * { animation-timeline: scroll(root); animation-timing-function: linear; animation-fill-mode: both; }
+
+  /* The photo starts as a thin slit and opens to the full card, zooming out as it does. */
+  .photo { position: absolute; inset: 7vh 9vw; border-radius: 22px; overflow: hidden;
+    clip-path: inset(0 47% round 22px); animation-name: open; animation-range: 0% 40%; }
+  .photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 100%; scale: 1.35; animation-name: zoom; animation-range: 0% 55%; }
+  .photo::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #ff3d9a00 40%, #3a0f4ddd), linear-gradient(120deg, #ff3d9a55, #ffd25a22); mix-blend-mode: multiply; }
+  @keyframes open { to { clip-path: inset(0 0 round 22px) } }
+  @keyframes zoom { to { scale: 1 } }
+
+  /* The name rises in, one line after the other, filled with the sunset gradient. */
+  .name { position: absolute; left: 13vw; bottom: 19vh; margin: 0; font: 900 clamp(56px, 17vw, 150px)/.86 system-ui; letter-spacing: -.04em; text-transform: uppercase; }
+  .name span { display: block; color: transparent; background: linear-gradient(90deg, #ff3d9a, #ff7a45, #ffd25a); -webkit-background-clip: text; background-clip: text;
+    animation-name: rise; animation-range: 30% 55%; }
+  .name span + span { animation-range: 40% 65%; }
+  @keyframes rise { from { opacity: 0; translate: 0 60px } }
+
+  .bio { position: absolute; left: 13vw; right: 13vw; bottom: 11vh; margin: 0; font: 600 clamp(14px, 3.4vw, 22px)/1.3 system-ui; color: #ffe9f4;
+    animation-name: rise; animation-range: 60% 80%; }
+  .tag { position: absolute; top: 11vh; left: 13vw; padding: 6px 14px; border-radius: 999px; background: #ff3d9a; font: 800 13px system-ui; letter-spacing: .2em; text-transform: uppercase;
+    animation-name: rise; animation-range: 25% 45%; }
+  .hint { position: absolute; bottom: 3vh; font: 700 14px system-ui; letter-spacing: .25em; color: #ffffff80; animation-name: fade; animation-range: 0% 10%; }
+  @keyframes fade { to { opacity: 0 } }
+</style>
+</head>
+<body>
+  <section class="scene">
+    <div class="photo"><img src="surfer.jpg" alt="A surfer with a board, standing in the waves at sunset"></div>
+    <span class="tag">Character 01</span>
+    <h2 class="name"><span>Kai</span><span>Reyes</span></h2>
+    <p class="bio">Surfs at dawn. Owes money by noon.</p>
+    <p class="hint">SCROLL ↓</p>
+  </section>
+</body>
+</html>

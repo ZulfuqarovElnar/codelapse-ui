@@ -21,5 +21,11 @@ Open it in a browser, or copy the parts you need.
 | Car radio station switcher 📻 | [radio-dial](radio-dial) |
 | Cheat code input 🎮 | [cheat-code](cheat-code) |
 | Scroll zoom reveal in pure CSS (the GTA 6 website effect) 🌴 | [scroll-zoom-reveal](scroll-zoom-reveal) |
+| The same scroll zoom with GSAP + ScrollTrigger, for comparison | [scroll-zoom-reveal/gsap.html](scroll-zoom-reveal/gsap.html) |
+| Headline that fills with colour as you scroll 🌅 | [scroll-text-fill](scroll-text-fill) |
+| Character card that opens as you scroll 🏄 | [character-reveal](character-reveal) |
+
+The scroll effects use CSS scroll-driven animations (`animation-timeline`), supported in Chrome/Edge 115+, Safari 26+ and Firefox 159+.
+The surfer photo in `character-reveal` is public domain (CC0), from [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:The_Last_Ride_(Unsplash).jpg).
 
 MIT licensed. Use them in your own projects, paid or free.
