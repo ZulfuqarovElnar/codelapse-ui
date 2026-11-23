@@ -28,7 +28,7 @@ Open it in a browser, or copy the parts you need.
 | Character card that opens as you scroll 🏄 | [character-reveal](character-reveal) |
 | Scroll to drive: a GPS route on a 3D map 🚗 | [scroll-map-drive](scroll-map-drive) |
 | A drivable 3D night city: arrow keys, drifting, traffic, GPS (Three.js) 🌃 | [drive-city](drive-city) |
-| Drive Baku at night: Neftchilar Avenue, Old City, Maiden Tower, Flame Towers, minimap (Three.js) 🇦🇿 | [drive-baku](drive-baku) |
+| Drive Baku at night: Neftchilar Avenue, Old City, Maiden Tower, Flame Towers, GPS route on a minimap, engine sounds (Three.js) 🇦🇿 | [drive-baku](drive-baku) |
 | Character cards that morph into a page (View Transitions) ✨ | [view-transition-cards](view-transition-cards) |
 
 The scroll effects use CSS scroll-driven animations (`animation-timeline`), supported in Chrome/Edge 115+, Safari 26+ and Firefox 159+.

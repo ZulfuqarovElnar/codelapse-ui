@@ -294,13 +294,54 @@ const carpet = texture(canvas(512, 256, (g, W, H) => {
 const cm = add(new THREE.CylinderGeometry(11, 11, 62, 48, 1, false, 0, Math.PI * 1.55), new THREE.MeshStandardMaterial({ map: carpet, emissiveMap: carpet, emissive: '#ffffff', emissiveIntensity: .35, side: THREE.DoubleSide, roughness: .8 }), 380, 9, 562);
 cm.rotation.set(0, 0, Math.PI / 2);
 
-// Heydar Aliyev Center: flowing white shells on a white plaza.
+// Heydar Aliyev Center: one white surface that rises out of the plaza in waves and curls up over a
+// glass wall at the front (the same model as in our tower game, at street scale).
 add(flat, new THREE.MeshStandardMaterial({ color: '#8e9096', roughness: .7 }), (HAC.x0 + HAC.x1) / 2, .05, (HAC.z0 + HAC.z1) / 2, HAC.x1 - HAC.x0, 1, HAC.z1 - HAC.z0);
-const white = new THREE.MeshStandardMaterial({ color: '#f4f6fa', emissive: '#dfe8ff', emissiveIntensity: .35, roughness: .25, metalness: .1, envMap: env, side: THREE.DoubleSide });
-const shell = (pts, x, z, sx, sy, sz, rot, from, len) => { const m = add(new THREE.LatheGeometry(pts.map(([a, b]) => new THREE.Vector2(a, b)), 48, from, len), white, x, 0, z, sx, sy, sz); m.rotation.y = rot; };
-shell([[30, 0], [34, 6], [33, 14], [27, 21], [17, 25], [6, 26], [0, 26]], 800, 120, 1.25, 1, .9, .2, 0, Math.PI * 1.25);
-shell([[22, 0], [25, 5], [23, 12], [16, 17], [6, 19], [0, 19]], 815, 190, 1.1, 1, .8, 3.3, 0, Math.PI * 1.1);
-solids.push({ x0: HAC.x0 + 8, x1: HAC.x1 - 8, z0: HAC.z0 + 20, z1: HAC.z1 - 20 });
+{
+  const h = 30, L = 190, D = 70, NU = 90, NV = 26;
+  const peaks = [0, .3, .62, .9, 1, .78, .5, .42, .52, .48, .22, 0];
+  const H = (u) => { const f = u * (peaks.length - 1), i = Math.min(Math.floor(f), peaks.length - 2), t = f - i;
+    const a = peaks[Math.max(0, i - 1)], b = peaks[i], c = peaks[i + 1], d = peaks[Math.min(peaks.length - 1, i + 2)];
+    return Math.max(0, .5 * (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (3 * b - a - 3 * c + d) * t * t * t)) * h; };
+  const lift = (u) => Math.sin(Math.PI * clamp((u - .12) / .8, 0, 1)) ** 1.2 * .5;
+  const section = (v, edge) => { const p = [[-.08, edge], [.02, 1.2], [.5, 1.12], [1, 0]], k = 1 - v;
+    return [k ** 3 * p[0][0] + 3 * k * k * v * p[1][0] + 3 * k * v * v * p[2][0] + v ** 3 * p[3][0], k ** 3 * p[0][1] + 3 * k * k * v * p[1][1] + 3 * k * v * v * p[2][1] + v ** 3 * p[3][1]]; };
+  const pos = [], idx = [], gp = [], gi = [];
+  for (let i = 0; i <= NU; i++) {
+    const u = i / NU, hu = H(u), e = lift(u), depth = D * (.55 + .45 * Math.sin(Math.PI * u) ** .5);
+    for (let j = 0; j <= NV; j++) { const [z, y] = section(j / NV, e); pos.push((u - .5) * L, y * hu, depth / 2 - z * depth); }
+    gp.push((u - .5) * L, 0, depth * .45, (u - .5) * L, Math.max(0, e * hu * .97), depth * .45);
+    if (i) gi.push(2 * i - 2, 2 * i, 2 * i - 1, 2 * i, 2 * i + 1, 2 * i - 1);
+  }
+  for (let i = 0; i < NU; i++) for (let j = 0; j < NV; j++) { const a = i * (NV + 1) + j, b = a + NV + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  const geo = (p, ix) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setIndex(ix); g.computeVertexNormals(); return g; };
+  const hac = new THREE.Group(); hac.position.set(800, 0, 140); hac.rotation.y = -Math.PI / 2; scene.add(hac);   // long side along the street, front facing west
+  hac.add(new THREE.Mesh(geo(pos, idx), new THREE.MeshStandardMaterial({ color: '#f4f4f0', emissive: '#e8eeff', emissiveIntensity: .06, roughness: .55, envMap: env, envMapIntensity: .12, side: THREE.DoubleSide })));
+  hac.add(new THREE.Mesh(geo(gp, gi), new THREE.MeshStandardMaterial({ color: '#ffd9a0', emissive: '#ffcf8a', emissiveIntensity: .7, side: THREE.DoubleSide })));   // lit glass wall
+  solids.push({ x0: 800 - D / 2, x1: 800 + D / 2, z0: 140 - L / 2 + 10, z1: 140 + L / 2 - 10 });
+}
+
+// SOCAR Tower: a tapering glass flame of a tower with lit vertical lines.
+const socarTex = texture(canvas(256, 512, (g, W, H) => { g.fillStyle = '#0c1a2c'; g.fillRect(0, 0, W, H); g.fillStyle = '#7fc4ff'; for (let x = 0; x < W; x += 32) g.fillRect(x, 0, 3, H); g.fillStyle = '#ffffff22'; for (let y = 0; y < H; y += 16) g.fillRect(0, y, W, 1); }), true);
+socarTex.repeat.set(3, 6);
+add(new THREE.CylinderGeometry(4, 15, 180, 6), new THREE.MeshStandardMaterial({ map: socarTex, emissiveMap: socarTex, emissive: '#ffffff', emissiveIntensity: 1, roughness: .2, metalness: .5, envMap: env }), 800, 90, 320);
+
+// Baku TV Tower on the hill to the west, with red aircraft lights.
+const concrete = new THREE.MeshStandardMaterial({ color: '#c9c6c0', emissive: '#ffd0a0', emissiveIntensity: .12, roughness: .8 });
+add(new THREE.CylinderGeometry(2.2, 4.5, 190, 16), concrete, -150, 34 + 95, 330);
+add(new THREE.CylinderGeometry(9, 7, 14, 24), concrete, -150, 34 + 150, 330);
+add(new THREE.CylinderGeometry(.6, 1.2, 60, 8), new THREE.MeshStandardMaterial({ color: '#d9433b' }), -150, 34 + 220, 330);
+for (const y of [160, 205, 250]) add(new THREE.SphereGeometry(1.2, 8, 6), new THREE.MeshStandardMaterial({ color: '#ff2020', emissive: '#ff2020', emissiveIntensity: 6 }), -150, 34 + y, 330);
+
+// Crescent: a tall standing crescent out on the water at the east end of the bay.
+{
+  const ry = 80, rx = 24, sh = new THREE.Shape();
+  sh.absellipse(0, ry, rx, ry, -Math.PI / 2, Math.PI / 2, false);
+  sh.absellipse(-rx * .35, ry, rx * .9, ry * .86, Math.PI / 2, -Math.PI / 2, true);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: 14, bevelEnabled: false, curveSegments: 40 }).translate(0, 0, -7);
+  const c = add(g, new THREE.MeshStandardMaterial({ map: glassTex[0], emissiveMap: glassTex[1], emissive: '#ffffff', emissiveIntensity: 1, roughness: .2, metalness: .5, envMap: env }), 880, 0, 660);
+  c.rotation.y = -.6;
+}
 
 // National Flag Square at the west end of the avenue: a very tall pole and a waving flag.
 add(flat, new THREE.MeshStandardMaterial({ color: '#5a554d', roughness: .8 }), -140, .05, 560, 160, 1, 50);
@@ -373,7 +414,7 @@ const smoke = Array.from({ length: 70 }, () => { const s = new THREE.Sprite(new 
 let puffAt = 0;
 
 // GPS: Baku landmarks, each marked by a beam of light.
-const PLACES = [['Maiden Tower', 470, AV], ['Flame Towers', 260, 470], ['Heydar Aliyev Center', 740, 190], ['Baku Eye', 560, AV], ['National Flag Square', -120, AV]];
+const PLACES = [['Maiden Tower', 470, AV, 'tower'], ['Flame Towers', 260, 470, 'flame'], ['Heydar Aliyev Center', 740, 190, 'wave'], ['Baku Eye', 560, AV, 'wheel'], ['National Flag Square', -120, AV, 'flag']];
 const beam = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 120, 24, 1, true), new THREE.MeshBasicMaterial({ color: '#3fb6ff', transparent: true, opacity: .2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
 const ring = new THREE.Mesh(new THREE.RingGeometry(2.6, 3.2, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#3fb6ff', transparent: true, blending: THREE.AdditiveBlending }));
 scene.add(beam, ring);
@@ -398,7 +439,7 @@ function physics(dt) {
 function bump(nx, nz, depth) {
   car.x += nx * depth; car.z += nz * depth;
   const vn = car.vx * nx + car.vz * nz;
-  if (vn < 0) { car.vx -= nx * vn * 1.4; car.vz -= nz * vn * 1.4; car.vx *= .65; car.vz *= .65; shake = Math.min(.6, -vn / 25); }
+  if (vn < 0) { car.vx -= nx * vn * 1.4; car.vz -= nz * vn * 1.4; car.vx *= .65; car.vz *= .65; shake = Math.min(.6, -vn / 25); if (-vn > 3) crashSound(-vn / 20); }
 }
 function collide() {
   const R = 1.4;
@@ -455,31 +496,140 @@ const mapImg = canvas(EAST - WEST + 80, COAST + 200, (g, W, H) => {
   g.strokeStyle = '#9fd4ff'; g.lineWidth = 3; g.beginPath(); g.arc(560 - MX, 568 - MZ, 12, 0, 7); g.stroke();
   g.fillStyle = '#fff'; g.font = 'bold 26px system-ui'; g.fillText('CASPIAN SEA', 300 - MX, COAST + 60 - MZ);
 });
+// Road graph for the GPS: crossroads are nodes, the street pieces between them are edges.
+const nodes = [], edges = [];
+const nodeAt = (x, z) => { let n = nodes.findIndex((p) => p.x === x && p.z === z); if (n < 0) { nodes.push({ x, z }); n = nodes.length - 1; } return n; };
+const link = (a, b) => edges.push([nodeAt(a[0], a[1]), nodeAt(b[0], b[1])]);
+for (const x of VX) { const zs = [...HZ, AV]; for (let k = 0; k < zs.length - 1; k++) if (roadOK(x, (zs[k] + zs[k + 1]) / 2)) link([x, zs[k]], [x, zs[k + 1]]); }
+for (const z of HZ) for (let k = 0; k < VX.length - 1; k++) if (roadOK((VX[k] + VX[k + 1]) / 2, z)) link([VX[k], z], [VX[k + 1], z]);
+{ const xs = [-120, ...VX]; for (let k = 0; k < xs.length - 1; k++) link([xs[k], AV], [xs[k + 1], AV]); }
+// Where a point meets the road network: the nearest edge, and how far along it.
+function snap(x, z) {
+  let best = null;
+  for (const [a, b] of edges) {
+    const A = nodes[a], B = nodes[b], dx = B.x - A.x, dz = B.z - A.z, t = clamp(((x - A.x) * dx + (z - A.z) * dz) / (dx * dx + dz * dz), 0, 1);
+    const px = A.x + dx * t, pz = A.z + dz * t, d = Math.hypot(x - px, z - pz);
+    if (!best || d < best.d) best = { a, b, px, pz, d };
+  }
+  return best;
+}
+// Shortest way from the car to the target along the streets (Dijkstra over a few dozen crossroads).
+function route(from, to) {
+  const s = snap(from.x, from.z), e = snap(to.x, to.z), N = nodes.length, S = N, E = N + 1;
+  const pts = [...nodes, { x: s.px, z: s.pz }, { x: e.px, z: e.pz }];
+  const adj = Array.from({ length: N + 2 }, () => []);
+  const join = (u, v) => { const w = Math.hypot(pts[u].x - pts[v].x, pts[u].z - pts[v].z); adj[u].push([v, w]); adj[v].push([u, w]); };
+  for (const [a, b] of edges) join(a, b);
+  join(S, s.a); join(S, s.b); join(E, e.a); join(E, e.b);
+  if ((s.a === e.a && s.b === e.b)) join(S, E);                          // same street piece: go straight there
+  const dist = new Array(N + 2).fill(Infinity), prev = new Array(N + 2).fill(-1), done = new Array(N + 2).fill(false);
+  dist[S] = 0;
+  for (;;) {
+    let u = -1; for (let n = 0; n < N + 2; n++) if (!done[n] && dist[n] < Infinity && (u < 0 || dist[n] < dist[u])) u = n;
+    if (u < 0 || u === E) break; done[u] = true;
+    for (const [v, w] of adj[u]) if (dist[u] + w < dist[v]) { dist[v] = dist[u] + w; prev[v] = u; }
+  }
+  const path = [to, ]; for (let n = E; n >= 0; n = prev[n]) path.push(pts[n]); path.push(from);
+  return { path: path.reverse(), length: dist[E] + e.d };
+}
+
+// Small map icons, drawn upright whatever way the map is turned.
+function icon(g, type, x, y, r, on) {
+  g.save(); g.translate(x, y);
+  g.fillStyle = on ? '#b45cff' : '#050a1acc'; g.strokeStyle = '#fff'; g.lineWidth = r * .14;
+  g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill(); g.stroke();
+  g.fillStyle = '#fff'; g.strokeStyle = '#fff'; g.lineWidth = r * .12; const u = r / 10;
+  if (type === 'tower') { g.fillRect(-4 * u, -4 * u, 8 * u, 10 * u); for (const k of [-4, -1, 2]) g.fillRect(k * u, -6.5 * u, 2 * u, 2.5 * u); }
+  if (type === 'flame') { g.beginPath(); g.moveTo(0, -7 * u); g.quadraticCurveTo(6 * u, 0, 3.5 * u, 6 * u); g.lineTo(-3.5 * u, 6 * u); g.quadraticCurveTo(-6 * u, 0, 0, -7 * u); g.fill(); g.fillStyle = on ? '#b45cff' : '#050a1a'; g.beginPath(); g.ellipse(0, 3 * u, 1.8 * u, 3 * u, 0, 0, 7); g.fill(); }
+  if (type === 'wave') { g.beginPath(); g.moveTo(-7 * u, 5 * u); g.bezierCurveTo(-5 * u, -8 * u, 1 * u, -2 * u, 2 * u, 1 * u); g.bezierCurveTo(4 * u, -6 * u, 7 * u, -3 * u, 7 * u, 5 * u); g.closePath(); g.fill(); }
+  if (type === 'wheel') { g.beginPath(); g.arc(0, -1 * u, 5.5 * u, 0, 7); g.stroke(); for (let k = 0; k < 4; k++) { const a = k * Math.PI / 4; g.beginPath(); g.moveTo(Math.cos(a) * -5.5 * u, -1 * u + Math.sin(a) * -5.5 * u); g.lineTo(Math.cos(a) * 5.5 * u, -1 * u + Math.sin(a) * 5.5 * u); g.stroke(); } g.beginPath(); g.moveTo(-4 * u, 7 * u); g.lineTo(0, 0); g.lineTo(4 * u, 7 * u); g.stroke(); }
+  if (type === 'flag') { g.fillRect(-5 * u, -7 * u, 1.4 * u, 14 * u); g.fillStyle = '#00b5e2'; g.fillRect(-3.6 * u, -7 * u, 9 * u, 2.4 * u); g.fillStyle = '#ef3340'; g.fillRect(-3.6 * u, -4.6 * u, 9 * u, 2.4 * u); g.fillStyle = '#509e2f'; g.fillRect(-3.6 * u, -2.2 * u, 9 * u, 2.4 * u); }
+  g.restore();
+}
+
 const mini = document.getElementById('mini'), mg = mini.getContext('2d');
-function drawMini(tp) {
-  const S = mini.width, zoom = 1.25;
+let path = null, pathAt = -1e9, routeLen = 0;
+function drawMini(tgt, t) {
+  const S = mini.width, zoom = 1.25, cx = S / 2, cy = S / 2 + S * .12, rot = -Math.PI / 2 - Math.atan2(Math.cos(car.h), Math.sin(car.h));
+  if (t - pathAt > 250) { pathAt = t; const r = route({ x: car.x, z: car.z }, tgt); path = r.path; routeLen = r.length; }   // re-plan four times a second
+  const toScreen = (x, z) => { const dx = (x - car.x) * zoom, dz = (z - car.z) * zoom; return [cx + dx * Math.cos(rot) - dz * Math.sin(rot), cy + dx * Math.sin(rot) + dz * Math.cos(rot)]; };
   mg.clearRect(0, 0, S, S); mg.save();
   mg.beginPath(); mg.arc(S / 2, S / 2, S / 2, 0, 7); mg.clip();
   mg.fillStyle = '#123553'; mg.fillRect(0, 0, S, S);
-  mg.translate(S / 2, S / 2 + S * .12); mg.scale(zoom, zoom);
-  mg.rotate(-Math.PI / 2 - Math.atan2(Math.cos(car.h), Math.sin(car.h)));  // the car's heading points up
+  mg.save(); mg.translate(cx, cy); mg.rotate(rot); mg.scale(zoom, zoom);
   mg.drawImage(mapImg, MX - car.x, MZ - car.z);
-  const tx = clamp(tp.x - car.x, -140, 140), tz = clamp(tp.z - car.z, -140, 140);
-  mg.fillStyle = '#3fb6ff'; mg.beginPath(); mg.arc(tx, tz, 7, 0, 7); mg.fill();
-  for (const t of traffic) { mg.fillStyle = '#ffffffaa'; mg.fillRect(t.c.group.position.x - car.x - 1.5, t.c.group.position.z - car.z - 1.5, 3, 3); }
+  for (const c of traffic) { mg.fillStyle = '#ffffffaa'; mg.fillRect(c.c.group.position.x - car.x - 1.5, c.c.group.position.z - car.z - 1.5, 3, 3); }
+  // The GPS route: a thick purple line along the streets, like in the games.
+  mg.lineJoin = mg.lineCap = 'round';
+  for (const [w, c] of [[11, '#2a0a45'], [7, '#b45cff']]) { mg.strokeStyle = c; mg.lineWidth = w; mg.beginPath(); path.forEach((p, n) => (n ? mg.lineTo(p.x - car.x, p.z - car.z) : mg.moveTo(p.x - car.x, p.z - car.z))); mg.stroke(); }
   mg.restore();
-  mg.save(); mg.translate(S / 2, S / 2 + S * .12); mg.fillStyle = '#ffd25a'; mg.strokeStyle = '#050a1a'; mg.lineWidth = 3;
+  // Landmark icons; the target's icon sits on the rim when it is off the map.
+  for (const [name, x, z, type] of PLACES) {
+    let [sx, sy] = toScreen(x, z); const on = name === tgt.name, dx = sx - S / 2, dy = sy - S / 2, d = Math.hypot(dx, dy), rim = S / 2 - 26;
+    if (d > rim) { if (!on) continue; sx = S / 2 + dx / d * rim; sy = S / 2 + dy / d * rim; }
+    icon(mg, type, sx, sy, on ? 22 : 15, on);
+  }
+  mg.restore();
+  mg.save(); mg.translate(cx, cy); mg.fillStyle = '#ffd25a'; mg.strokeStyle = '#050a1a'; mg.lineWidth = 3;
   mg.beginPath(); mg.moveTo(0, -16); mg.lineTo(11, 12); mg.lineTo(0, 6); mg.lineTo(-11, 12); mg.closePath(); mg.stroke(); mg.fill(); mg.restore();
+}
+
+// ---------- Sound ----------
+// Everything is synthesised with Web Audio, no sound files: an engine made of two detuned saw waves
+// through a low-pass filter, tyre squeal from filtered noise, and a thump for crashes.
+const sound = { ctx: null, on: true };
+function startSound() {
+  if (sound.ctx) return;
+  const ctx = sound.ctx = new AudioContext(), out = ctx.createGain(); out.gain.value = .5; out.connect(ctx.destination);
+  const engineGain = ctx.createGain(); engineGain.gain.value = 0;
+  const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 600; filter.Q.value = 4;
+  const oscs = [0, 7].map((detune) => { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.detune.value = detune; o.connect(filter); o.start(); return o; });
+  const sub = ctx.createOscillator(); sub.type = 'square'; const subGain = ctx.createGain(); subGain.gain.value = .25; sub.connect(subGain).connect(filter); sub.start();
+  filter.connect(engineGain).connect(out);
+  const noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), data = noise.getChannelData(0);
+  for (let n = 0; n < data.length; n++) data[n] = Math.random() * 2 - 1;
+  const hiss = ctx.createBufferSource(); hiss.buffer = noise; hiss.loop = true;
+  const band = ctx.createBiquadFilter(); band.type = 'bandpass'; band.frequency.value = 2400; band.Q.value = 6;
+  const squealGain = ctx.createGain(); squealGain.gain.value = 0;
+  hiss.connect(band).connect(squealGain).connect(out); hiss.start();
+  Object.assign(sound, { out, engineGain, filter, oscs, sub, band, squealGain, noise });
+}
+let gear = 1;
+function updateSound(speed, slip, dt) {
+  if (!sound.ctx) return;
+  const { ctx, engineGain, filter, oscs, sub, band, squealGain, out } = sound, now = ctx.currentTime;
+  // Five gears: revs climb within a gear and drop when it shifts up.
+  const top = [0, 9, 17, 25, 34, 99], kmh = speed;
+  while (gear < 5 && kmh > top[gear]) gear++;
+  while (gear > 1 && kmh < top[gear - 1] - 2) gear--;
+  const rev = clamp((kmh - top[gear - 1]) / (top[gear] - top[gear - 1] || 1), 0, 1);
+  const f = 38 + rev * 70 + gear * 6 + (input.up ? 10 : 0);
+  for (const o of oscs) o.frequency.setTargetAtTime(f, now, .05);
+  sub.frequency.setTargetAtTime(f / 2, now, .05);
+  filter.frequency.setTargetAtTime(400 + rev * 900 + (input.up ? 900 : 0), now, .08);
+  engineGain.gain.setTargetAtTime(.10 + (input.up ? .16 : 0) + speed * .002, now, .1);
+  // Tyres squeal when the car slides sideways, or when braking hard at speed.
+  const sq = clamp((slip - 3) / 10, 0, 1) * .5 + (input.down && speed > 8 ? .25 : 0) + (input.drift && speed > 8 ? .2 : 0);
+  squealGain.gain.setTargetAtTime(Math.min(.55, sq), now, .06);
+  band.frequency.setTargetAtTime(1900 + Math.random() * 900, now, .03);
+  out.gain.setTargetAtTime(sound.on ? .5 : 0, now, .05);
+}
+function crashSound(force) {
+  if (!sound.ctx || !sound.on) return;
+  const { ctx, out, noise } = sound, src = ctx.createBufferSource(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+  src.buffer = noise; lp.type = 'lowpass'; lp.frequency.value = 500; g.gain.setValueAtTime(Math.min(1, force), ctx.currentTime); g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .35);
+  src.connect(lp).connect(g).connect(out); src.start(); src.stop(ctx.currentTime + .4);
 }
 
 // ---------- HUD and input ----------
 const $ = (id) => document.getElementById(id);
 const KEYS = { ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ' ': 'drift' };
-const takeOver = () => { if (demo) { demo = false; for (const k in input) input[k] = 0; $('hint').innerHTML = '↑ ↓ ← → drive<br>space drift'; } };
-addEventListener('keydown', (e) => { const k = KEYS[e.key]; if (k) { e.preventDefault(); takeOver(); input[k] = 1; } });
+const takeOver = () => { if (demo) { demo = false; for (const k in input) input[k] = 0; $('hint').innerHTML = '↑ ↓ ← → drive<br>space drift · M sound'; } };
+addEventListener('keydown', (e) => { startSound(); if (e.key === 'm' || e.key === 'M') sound.on = !sound.on; const k = KEYS[e.key]; if (k) { e.preventDefault(); takeOver(); input[k] = 1; } });
+addEventListener('pointerdown', startSound);
 addEventListener('keyup', (e) => { const k = KEYS[e.key]; if (k) input[k] = 0; });
 for (const btn of document.querySelectorAll('.pad button')) {
-  btn.addEventListener('pointerdown', () => { takeOver(); input[btn.dataset.k] = 1; });
+  btn.addEventListener('pointerdown', () => { startSound(); takeOver(); input[btn.dataset.k] = 1; });
   for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, () => (input[btn.dataset.k] = 0));
 }
 
@@ -530,15 +680,16 @@ function frame(t) {
   }
   for (const p of smoke) if (p.life > 0) { p.life -= dt * .9; p.s.material.opacity = p.life * .28; p.s.scale.setScalar(1.5 + (1 - p.life) * 4); p.s.position.y += dt * .8; }
 
-  const [name, tx, tz] = PLACES[target], tp = { x: tx, z: tz }, dist = Math.hypot(tx - car.x, tz - car.z);
+  const [name, tx, tz] = PLACES[target], tp = { x: tx, z: tz, name }, dist = Math.hypot(tx - car.x, tz - car.z);
   beam.position.set(tx, 60, tz); ring.position.set(tx, .08, tz); ring.scale.setScalar(1 + (t / 900 % 1) * .6);
   if (dist < 12 && t - arrivedAt > 2500) { arrivedAt = t; arrivedName = name; target = (target + 1) % PLACES.length; }
   $('arrived').classList.toggle('on', t - arrivedAt < 2000); $('arrivedAt').textContent = arrivedName;
-  $('place').textContent = name; $('dist').textContent = Math.round(dist) + ' m';
+  $('place').textContent = name; $('dist').textContent = Math.round(path ? routeLen : dist) + ' m';
   $('arrow').style.rotate = car.h - Math.atan2(tx - car.x, tz - car.z) + 'rad';
   $('kmh').textContent = Math.round(speed * 3.6);
   $('street').textContent = car.z > AV0 - 3 ? 'Neftchilar Avenue · Baku' : inside(OLD, car.x, car.z, 20) ? 'Old City · Baku' : 'Baku';
-  drawMini(tp);
+  drawMini(tp, t);
+  updateSound(speed, Math.abs(car.vs), dt);
 
   shake *= Math.exp(-dt * 8);
   want.set(car.x - fx * (6.2 + speed * .05), 2.5 + speed * .015, car.z - fz * (6.2 + speed * .05));
