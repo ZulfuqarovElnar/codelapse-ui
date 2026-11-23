@@ -25,10 +25,13 @@ Open it in a browser, or copy the parts you need.
 | Headline that fills with colour as you scroll 🌅 | [scroll-text-fill](scroll-text-fill) |
 | Character card that opens as you scroll 🏄 | [character-reveal](character-reveal) |
 | Scroll to drive: a GPS route on a 3D map 🚗 | [scroll-map-drive](scroll-map-drive) |
+| A drivable 3D night city: arrow keys, drifting, traffic, GPS (Three.js) 🌃 | [drive-city](drive-city) |
 | Character cards that morph into a page (View Transitions) ✨ | [view-transition-cards](view-transition-cards) |
 
 The scroll effects use CSS scroll-driven animations (`animation-timeline`), supported in Chrome/Edge 115+, Safari 26+ and Firefox 159+.
 `view-transition-cards` uses the View Transitions API (Chrome/Edge 111+, Safari 18+, Firefox 144+); elsewhere the card simply opens without the animation.
 The photos in `character-reveal` and `view-transition-cards` are public domain (CC0), from Wikimedia Commons: [surfer](https://commons.wikimedia.org/wiki/File:The_Last_Ride_(Unsplash).jpg), [motel sign](https://commons.wikimedia.org/wiki/File:Ambassador_Motel.jpg), [lifeguard tower](https://commons.wikimedia.org/wiki/File:Lifeguarded_(Unsplash).jpg).
+
+`drive-city` loads [Three.js](https://threejs.org) (MIT) from a CDN; everything else in it is in the one file.
 
 MIT licensed. Use them in your own projects, paid or free.
