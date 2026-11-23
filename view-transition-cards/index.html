@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Character cards that morph into a page (View Transitions)</title>
+<style>
+  body { margin: 0; min-height: 100vh; background: radial-gradient(120% 70% at 50% 0%, #3a1450, #12081f 70%); color: #fff; font-family: system-ui, sans-serif; }
+  h1 { margin: 0; padding: 7vh 0 4vh; text-align: center; font: 900 clamp(40px, 11vw, 96px)/.9 system-ui; letter-spacing: -.04em; text-transform: uppercase;
+    color: transparent; background: linear-gradient(90deg, #ff3d9a, #ff7a45, #ffd25a); -webkit-background-clip: text; background-clip: text; }
+  .cast { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 0 5vw; }
+
+  .card { position: relative; aspect-ratio: 3 / 4.6; padding: 0; border: 0; border-radius: 18px; overflow: hidden; cursor: pointer;
+    background: #000; color: inherit; font: inherit; text-align: left; }
+  .card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 45%, #1b0828ee); }
+  .card h2 { position: absolute; z-index: 1; left: 12px; right: 12px; bottom: 12px; margin: 0; font: 900 clamp(18px, 4.6vw, 34px)/.9 system-ui; text-transform: uppercase; letter-spacing: -.02em; }
+  .card p { display: none; }
+
+  /* Open: the same card, now covering the whole screen. The browser animates between the two layouts. */
+  .card.open { position: fixed; inset: 0; z-index: 10; aspect-ratio: auto; border-radius: 0; }
+  .card.open h2 { left: 6vw; bottom: 17vh; font-size: clamp(56px, 16vw, 140px); color: transparent;
+    background: linear-gradient(90deg, #ff3d9a, #ff7a45, #ffd25a); -webkit-background-clip: text; background-clip: text; }
+  .card.open p { display: block; position: absolute; z-index: 1; left: 6vw; right: 6vw; bottom: 9vh; margin: 0; font: 600 clamp(15px, 3.6vw, 24px)/1.3 system-ui; color: #ffe9f4; }
+
+  /* The clicked card's photo and name get transition names (set in the script), so they move and resize
+     above everything else while the rest of the page cross-fades underneath. */
+  .card img { view-transition-name: var(--photo, none); }
+  .card h2 { view-transition-name: var(--name, none); }
+  ::view-transition-group(*) { animation-duration: .55s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+</style>
+</head>
+<body>
+  <h1>The cast</h1>
+  <main class="cast">
+    <button class="card" id="kai"><img src="kai.jpg" alt="A surfer at sunset"><h2>Kai Reyes</h2><p>Surfs at dawn. Owes money by noon.</p></button>
+    <button class="card" id="mara"><img src="mara.jpg" alt="A neon motel sign at night"><h2>Mara Voss</h2><p>Runs the motel. Remembers every face.</p></button>
+    <button class="card" id="june"><img src="june.jpg" alt="A lifeguard tower under storm clouds"><h2>June Park</h2><p>Lifeguard. Sees everything from the tower.</p></button>
+  </main>
+
+<script>
+  // The whole animation is the browser's: we only name what should morph and say "this change is a transition".
+  const cards = document.querySelectorAll('.card');
+  for (const card of cards)
+    card.addEventListener('click', () => {
+      for (const c of cards) {
+        c.style.setProperty('--photo', c === card ? 'hero-photo' : 'none');
+        c.style.setProperty('--name', c === card ? 'hero-name' : 'none');
+      }
+      const swap = () => card.classList.toggle('open');
+      document.startViewTransition ? document.startViewTransition(swap) : swap();
+    });
+</script>
+</body>
+</html>
