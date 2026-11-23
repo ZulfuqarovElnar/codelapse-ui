@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drive Baku at night, in one HTML file</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #050a1a; color: #fff; font-family: system-ui, sans-serif; }
+  canvas { display: block; }
+  .hud { position: fixed; left: 50%; top: 4vh; translate: -50% 0; display: flex; gap: 10px; align-items: center; white-space: nowrap;
+    padding: 10px 16px; border-radius: 14px; background: #050a1acc; box-shadow: inset 0 0 0 2px #3fb6ff; font: 800 17px system-ui; }
+  .hud b { color: #3fb6ff; }
+  .hud i { font-style: normal; color: #ffd25a; }
+  .arrow { display: inline-block; width: 0; height: 0; border: 8px solid transparent; border-bottom: 14px solid #ffd25a; margin-top: -10px; }
+  .street { position: fixed; left: 50%; top: calc(4vh + 50px); translate: -50% 0; font: 700 12px system-ui; letter-spacing: .25em; text-transform: uppercase; color: #ffffffcc; text-shadow: 0 2px 8px #000; }
+  /* Minimap in the bottom-left corner: a round window that turns with the car. */
+  .mini { position: fixed; left: 3vw; bottom: 3vh; width: min(30vw, 190px); height: min(30vw, 190px); border-radius: 50%;
+    box-shadow: 0 0 0 3px #050a1a, 0 0 0 5px #3fb6ff88, 0 10px 30px #000a; }
+  .speed { position: fixed; right: 5vw; bottom: 4vh; text-align: right; font: 900 46px/1 system-ui; letter-spacing: -.03em; text-shadow: 0 2px 12px #000; }
+  .speed small { display: block; font: 700 13px system-ui; letter-spacing: .2em; color: #ffffffb3; }
+  .hint { position: fixed; right: 5vw; bottom: calc(4vh + 70px); text-align: right; font: 700 12px/1.6 system-ui; letter-spacing: .12em; color: #ffffffcc; text-transform: uppercase; text-shadow: 0 2px 10px #000; }
+  .arrived { position: fixed; left: 0; right: 0; top: 20%; margin: 0; text-align: center; font: 900 clamp(30px, 7vw, 60px)/1 system-ui; text-transform: uppercase;
+    color: transparent; background: linear-gradient(90deg, #3fb6ff, #ffffff, #ffd25a); -webkit-background-clip: text; background-clip: text;
+    opacity: 0; scale: .7; transition: opacity .3s, scale .4s cubic-bezier(.3, 1.6, .5, 1); }
+  .arrived small { display: block; margin-top: 8px; font: 800 .4em system-ui; letter-spacing: .2em; }
+  .arrived.on { opacity: 1; scale: 1; }
+  .pad { display: none; position: fixed; bottom: 4vh; gap: 10px; }
+  .pad button { width: 60px; height: 60px; border: 0; border-radius: 16px; background: #ffffff26; color: #fff; font: 800 22px system-ui; touch-action: none; }
+  .pad.l { left: calc(3vw + min(30vw, 190px) + 12px); } .pad.r { right: 4vw; }
+  @media (pointer: coarse) { .pad { display: flex; } .hint, .speed { display: none; } }
+</style>
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                 "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+  <div class="hud"><span class="arrow" id="arrow"></span><b>GPS</b> <span id="place"></span> · <i id="dist"></i></div>
+  <div class="street" id="street">Baku</div>
+  <p class="arrived" id="arrived">You have arrived<small id="arrivedAt"></small></p>
+  <canvas class="mini" id="mini" width="380" height="380"></canvas>
+  <div class="hint" id="hint">Demo · press any arrow key<br>↑ ↓ ← → drive · space drift</div>
+  <div class="speed"><span id="kmh">0</span><small>KM/H</small></div>
+  <div class="pad l"><button data-k="left">◀</button><button data-k="right">▶</button></div>
+  <div class="pad r"><button data-k="drift">⤳</button><button data-k="down">▼</button><button data-k="up">▲</button></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ---------- Setup ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, .1, 2000);
+const env = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .8, .5, .8));
+composer.addPass(new OutputPass());
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+});
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const seeded = (s) => () => ((s = Math.imul(s ^ (s >>> 15), 1 | s) + 0x6d2b79f5), ((s ^ (s >>> 14)) >>> 0) / 2 ** 32);
+const rnd = seeded(28); // same city on every load
+const canvas = (w, h, paint) => { const c = document.createElement('canvas'); c.width = w; c.height = h; paint(c.getContext('2d'), w, h); return c; };
+const texture = (c, rep) => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; if (rep) t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; };
+const box = new THREE.BoxGeometry(1, 1, 1);
+const flat = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+const add = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); scene.add(m); return m; };
+
+// Night over the Caspian: deep blue above, warm city glow on the horizon.
+scene.background = texture(canvas(2, 256, (g, w, h) => {
+  const s = g.createLinearGradient(0, 0, 0, h); s.addColorStop(0, '#03060f'); s.addColorStop(.6, '#14203d'); s.addColorStop(.9, '#6a3a4a'); s.addColorStop(1, '#c0703c');
+  g.fillStyle = s; g.fillRect(0, 0, w, h);
+}));
+scene.fog = new THREE.Fog('#121a30', 70, 520);
+scene.add(new THREE.HemisphereLight('#6b7fb8', '#1a1410', 1.1));
+const moon = new THREE.DirectionalLight('#a8bcff', .5); moon.position.set(-80, 140, 60); scene.add(moon);
+
+// ---------- Map ----------
+// x runs east, z runs south. The Caspian is to the south, Neftchilar Avenue runs along it.
+const VX = [20, 140, 260, 500, 620, 740, 860], HZ = [20, 140, 260, 380];        // street centre lines
+const ST = 14, AV = 520, AVW = 30, AV0 = AV - AVW / 2, AV1 = AV + AVW / 2;       // street width, avenue
+const WEST = -220, EAST = 900, COAST = 585;                                      // map edges, sea wall
+const HILL = { x0: 0, x1: 253, z0: 267, z1: 498 };                               // Highland Park, under the Flame Towers
+const OLD = { x0: 274, x1: 486, z0: 274, z1: 494 };                              // Old City walls
+const HAC = { x0: 747, x1: 853, z0: 27, z1: 253 };                               // Heydar Aliyev Center and its plaza
+const inside = (r, x, z, m = 0) => x > r.x0 - m && x < r.x1 + m && z > r.z0 - m && z < r.z1 + m;
+const blocks = [];
+for (let i = 0; i < VX.length - 1; i++) for (let j = 0; j < HZ.length; j++) {
+  const r = { x0: VX[i] + ST / 2, x1: VX[i + 1] - ST / 2, z0: HZ[j] + ST / 2, z1: (HZ[j + 1] ?? AV0) - ST / 2 };
+  const cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
+  if (inside(HILL, cx, cz) || inside({ x0: 267, x1: 493, z0: 267, z1: 498 }, cx, cz) || inside(HAC, cx, cz)) continue;
+  blocks.push(r);
+}
+// Street pieces that exist (not under the hill, the Old City or the Heydar Aliyev plaza).
+const roadOK = (x, z) => !inside(HILL, x, z, -2) && !inside({ x0: 267, x1: 493, z0: 267, z1: 498 }, x, z, -2) && !inside(HAC, x, z, -2);
+
+// Ground: asphalt with grain, sidewalks with curbs on every block.
+const asphalt = texture(canvas(512, 512, (g, S) => { g.fillStyle = '#1b1b21'; g.fillRect(0, 0, S, S); const r = seeded(3); for (let n = 0; n < 9000; n++) { g.fillStyle = r() < .5 ? '#ffffff0b' : '#00000022'; g.fillRect(r() * S, r() * S, 2, 2); } }), true);
+asphalt.repeat.set(160, 100);
+add(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: asphalt, roughness: .85 }), (WEST + EAST) / 2, 0, (COAST - 100) / 2, EAST - WEST + 200, 1, COAST + 100);
+const stone = new THREE.MeshStandardMaterial({ color: '#3b362f', roughness: .95 });
+for (const b of blocks) add(flat, stone, (b.x0 + b.x1) / 2, .06, (b.z0 + b.z1) / 2, b.x1 - b.x0, 1, b.z1 - b.z0);
+add(flat, stone, (WEST + EAST) / 2, .06, (AV1 + COAST) / 2, EAST - WEST, 1, COAST - AV1);                // the Boulevard
+add(flat, new THREE.MeshStandardMaterial({ color: '#4a3f33', roughness: 1 }), (OLD.x0 + OLD.x1) / 2, .07, (OLD.z0 + OLD.z1) / 2, OLD.x1 - OLD.x0, 1, OLD.z1 - OLD.z0);
+
+// Lane markings as real geometry, so they stay sharp: dashes on the streets, solid lines on the avenue, zebra crossings.
+const paint = new THREE.MeshBasicMaterial({ color: '#d9d6cf' });
+const dashes = [];
+for (const x of VX) for (let z = 0; z < AV0; z += 6) if (roadOK(x, z) && !HZ.some((h) => Math.abs(z - h) < 10)) dashes.push([x, z + 1.5, .2, 3]);
+for (const z of HZ) for (let x = 0; x < EAST - 30; x += 6) if (roadOK(x, z) && !VX.some((v) => Math.abs(x - v) < 10)) dashes.push([x + 1.5, z, 3, .2]);
+for (const o of [-7.5, 7.5]) for (let x = WEST; x < EAST; x += 6) if (!VX.some((v) => Math.abs(x - v) < 12)) dashes.push([x + 1.5, AV + o, 3, .2]);
+for (const v of VX) for (let k = -6; k <= 6; k += 1.3) {            // zebra crossings where the streets meet the avenue
+  dashes.push([v + k, AV0 - 2.2, .65, 3]);
+  for (const h of HZ) if (roadOK(v, h)) { dashes.push([v + k, h - ST / 2 - 2, .65, 3]); dashes.push([v - ST / 2 - 2, h + k, 3, .65]); }
+}
+const dash = new THREE.InstancedMesh(flat, paint, dashes.length); const tmp = new THREE.Object3D();
+dashes.forEach(([x, z, w, d], n) => { tmp.position.set(x, .03, z); tmp.scale.set(w, 1, d); tmp.updateMatrix(); dash.setMatrixAt(n, tmp.matrix); });
+scene.add(dash);
+for (const o of [-.3, .3]) add(flat, new THREE.MeshBasicMaterial({ color: '#e8c25a' }), (WEST + EAST) / 2, .035, AV + o, EAST - WEST, 1, .18);
+
+// The Caspian, with the far side of the bay glowing across the water.
+add(flat, new THREE.MeshStandardMaterial({ color: '#06121f', metalness: .85, roughness: .16, envMap: env, envMapIntensity: .5 }), 300, -.4, COAST + 900, 4000, 1, 1800);
+add(box, new THREE.MeshStandardMaterial({ color: '#4a4237', roughness: 1 }), (WEST + EAST) / 2, .3, COAST, EAST - WEST + 200, .9, 1.2);   // sea wall
+
+// Buildings. Baku's centre is limestone: warm beige walls with lit windows. Further east, glass towers.
+// Each facade is two textures from the same pattern: the wall itself, and a "glow" copy where only lit windows show.
+const facade = (base, lit, rows, cols) => [false, true].map((glow) => texture(canvas(512, 512, (g, S) => {
+  g.fillStyle = glow ? '#000' : base; g.fillRect(0, 0, S, S);
+  const cw = S / cols, rh = S / rows, r = seeded(rows * 31 + cols);
+  for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) {
+    const v = r(); g.fillStyle = v < .36 ? lit[0] : v < .44 ? lit[1] : glow ? '#000' : '#1a1714';
+    g.fillRect(x * cw + cw * .22, y * rh + rh * .2, cw * .56, rh * .58);
+    if (!glow) { g.fillStyle = '#00000030'; g.fillRect(x * cw + cw * .18, y * rh + rh * .78, cw * .64, rh * .06); }   // window sills
+  }
+}), true));
+const limestone = facade('#8a7a62', ['#ffcf8a', '#ffe6b8'], 16, 16), glassTex = facade('#0f1a2a', ['#9fd4ff', '#d8ecff'], 24, 20);
+const roofMat = new THREE.MeshStandardMaterial({ color: '#2a2622', roughness: 1 });
+const solids = [];
+function building(x, z, w, d, h, glass) {
+  const [t, e] = (glass ? glassTex : limestone).map((x) => { const c = x.clone(); c.needsUpdate = true; return c; });
+  const ox = rnd(), oy = rnd();
+  for (const x of [t, e]) { x.repeat.set(Math.max(w, d) / (glass ? 28 : 34), h / (glass ? 40 : 52)); x.offset.set(ox, oy); }
+  const wall = new THREE.MeshStandardMaterial({ map: t, emissiveMap: e, emissive: '#ffffff', emissiveIntensity: glass ? 1.1 : 1, roughness: glass ? .25 : .9, metalness: glass ? .6 : 0, envMap: glass ? env : null,
+    color: glass ? '#ffffff' : new THREE.Color().setHSL(.09, .25, .72 + rnd() * .12) });
+  add(box, [wall, wall, roofMat, roofMat, wall, wall], x, h / 2, z, w, h, d).material;
+  solids.push({ x0: x - w / 2, x1: x + w / 2, z0: z - d / 2, z1: z + d / 2 });
+}
+for (const b of blocks) {
+  const glassy = b.x0 > 600 && b.z0 < 260, D = 15, gap = () => 2 + rnd() * 4, inset = 3;
+  // Courtyard blocks: buildings along the edges, an open yard in the middle.
+  for (const side of [0, 1]) {
+    let x = b.x0 + inset; const z = side ? b.z1 - inset - D / 2 : b.z0 + inset + D / 2;
+    while (x < b.x1 - inset - 10) { const w = Math.min(14 + rnd() * 26, b.x1 - inset - x); building(x + w / 2, z, w, D, glassy && rnd() < .5 ? 40 + rnd() * 80 : 15 + rnd() * 16, glassy); x += w + gap(); }
+  }
+  for (const side of [0, 1]) {
+    let z = b.z0 + inset + D + 3; const x = side ? b.x1 - inset - D / 2 : b.x0 + inset + D / 2;
+    while (z < b.z1 - inset - D - 10) { const d = Math.min(14 + rnd() * 20, b.z1 - inset - D - 3 - z); building(x, z + d / 2, D, d, 15 + rnd() * 14, glassy); z += d + gap(); }
+  }
+}
+
+// Street lamps along the avenue and at the crossroads, each with a warm pool on the road.
+const pool = texture(canvas(128, 128, (g, S) => { const r = g.createRadialGradient(64, 64, 0, 64, 64, 64); r.addColorStop(0, '#ffcf8a'); r.addColorStop(1, '#ffcf8a00'); g.fillStyle = r; g.fillRect(0, 0, S, S); }));
+const lamps = [];
+for (let x = WEST + 10; x < EAST; x += 32) lamps.push([x, AV0 - 1.5, 1], [x + 16, AV1 + 1.5, -1]);
+for (const v of VX) for (const h of HZ) if (roadOK(v, h)) lamps.push([v + ST / 2 + 1, h + ST / 2 + 1, -1]);
+const poleI = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ color: '#2c2a2a', metalness: .5, roughness: .6 }), lamps.length);
+const headI = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ color: '#ffe2b0', emissive: '#ffd59a', emissiveIntensity: 4 }), lamps.length);
+const poolI = new THREE.InstancedMesh(flat, new THREE.MeshBasicMaterial({ map: pool, transparent: true, opacity: .5, blending: THREE.AdditiveBlending, depthWrite: false }), lamps.length);
+lamps.forEach(([x, z, s], n) => {
+  tmp.position.set(x, 4, z); tmp.scale.set(.22, 8, .22); tmp.updateMatrix(); poleI.setMatrixAt(n, tmp.matrix);
+  tmp.position.set(x, 8, z + s * 1.4); tmp.scale.set(.5, .2, 1.4); tmp.updateMatrix(); headI.setMatrixAt(n, tmp.matrix);
+  tmp.position.set(x, .04, z + s * 3); tmp.scale.set(17, 1, 17); tmp.updateMatrix(); poolI.setMatrixAt(n, tmp.matrix);
+});
+scene.add(poleI, headI, poolI);
+
+// Trees on the Boulevard and along the sidewalks, palms by the sea.
+const trees = [], palms = [];
+for (let x = WEST + 6; x < EAST; x += 9) { trees.push([x + rnd() * 4, AV1 + 9 + rnd() * 6]); if (rnd() < .6) trees.push([x + rnd() * 4, AV1 + 24 + rnd() * 10]); if (Math.round(x) % 18 < 9) palms.push([x + 4, COAST - 4 - rnd() * 3]); }
+for (const b of blocks) for (let x = b.x0 + 4; x < b.x1; x += 11) { trees.push([x, b.z0 + 1.5]); trees.push([x, b.z1 - 1.5]); }
+const trunkI = new THREE.InstancedMesh(new THREE.CylinderGeometry(.18, .26, 1, 6).translate(0, .5, 0), new THREE.MeshStandardMaterial({ color: '#3a2a1c' }), trees.length);
+const crownI = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: '#1f3d24', roughness: 1, flatShading: true }), trees.length);
+trees.forEach(([x, z], n) => {
+  const h = 3 + rnd() * 2.5, r = 2.2 + rnd() * 1.4;
+  tmp.position.set(x, 0, z); tmp.scale.set(1, h, 1); tmp.rotation.set(0, 0, 0); tmp.updateMatrix(); trunkI.setMatrixAt(n, tmp.matrix);
+  tmp.position.set(x, h + r * .6, z); tmp.scale.set(r, r * .85, r); tmp.rotation.set(0, rnd() * 6, 0); tmp.updateMatrix(); crownI.setMatrixAt(n, tmp.matrix);
+});
+scene.add(trunkI, crownI);
+const frondGeo = new THREE.PlaneGeometry(.8, 4).translate(0, 2, 0), frondMat = new THREE.MeshStandardMaterial({ color: '#2a6b48', side: THREE.DoubleSide });
+for (const [x, z] of palms) {
+  const h = 7 + rnd() * 4; add(new THREE.CylinderGeometry(.16, .3, h, 6).translate(0, h / 2, 0), new THREE.MeshStandardMaterial({ color: '#4a3020' }), x, 0, z);
+  for (let k = 0; k < 7; k++) { const f = add(frondGeo, frondMat, x, h, z); f.rotation.set(0, k * .9, 0); f.rotateX(1.15 + rnd() * .4); }
+}
+
+// ---------- Landmarks ----------
+const stoneTex = texture(canvas(256, 256, (g, S) => {
+  g.fillStyle = '#a08a68'; g.fillRect(0, 0, S, S); const r = seeded(11);
+  for (let y = 0; y < S; y += 16) for (let x = (y / 16) % 2 * 20; x < S; x += 40) { g.fillStyle = `hsl(35,${20 + r() * 12}%,${44 + r() * 12}%)`; g.fillRect(x + 1, y + 1, 38, 14); }
+}), true);
+const stoneMat = (rx, ry) => { const t = stoneTex.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: '#ffb070', emissiveIntensity: .22, roughness: 1 }); };
+
+// Old City (Icherisheher): stone walls with round towers and battlements, low houses inside.
+const wallMat = stoneMat(20, 1);
+const wallH = 9, merlons = [];
+for (const [x0, z0, x1, z1] of [[OLD.x0, OLD.z0, OLD.x1, OLD.z0], [OLD.x0, OLD.z1, OLD.x1, OLD.z1], [OLD.x0, OLD.z0, OLD.x0, OLD.z1], [OLD.x1, OLD.z0, OLD.x1, OLD.z1]]) {
+  const len = Math.hypot(x1 - x0, z1 - z0), along = x1 !== x0;
+  add(box, wallMat, (x0 + x1) / 2, wallH / 2, (z0 + z1) / 2, along ? len : 3, wallH, along ? 3 : len);
+  solids.push({ x0: Math.min(x0, x1) - 1.5, x1: Math.max(x0, x1) + 1.5, z0: Math.min(z0, z1) - 1.5, z1: Math.max(z0, z1) + 1.5 });
+  for (let s = 0; s <= len; s += 2.4) merlons.push([x0 + (along ? s : 0), z0 + (along ? 0 : s)]);   // battlements
+  for (let s = 0; s <= len; s += 42) add(new THREE.CylinderGeometry(4, 4.4, wallH + 3, 20), stoneMat(4, 1), x0 + (along ? s : 0), (wallH + 3) / 2, z0 + (along ? 0 : s));
+}
+const merI = new THREE.InstancedMesh(box, wallMat, merlons.length);
+merlons.forEach(([x, z], n) => { tmp.position.set(x, wallH + .6, z); tmp.scale.set(1.2, 1.2, 1.2); tmp.updateMatrix(); merI.setMatrixAt(n, tmp.matrix); });
+scene.add(merI);
+const houseMat = stoneMat(3, 1);
+for (let x = OLD.x0 + 10; x < OLD.x1 - 12; x += 13) for (let z = OLD.z0 + 10; z < OLD.z1 - 12; z += 13) {
+  if (Math.hypot(x - 455, z - 462) < 26 || rnd() < .18) continue;
+  const w = 8 + rnd() * 4, d = 8 + rnd() * 4, h = 5 + rnd() * 5; add(box, houseMat, x + rnd() * 2, h / 2, z + rnd() * 2, w, h, d);
+}
+add(new THREE.CylinderGeometry(1.4, 1.8, 26, 12), stoneMat(1, 4), 330, 13, 340);                         // minaret
+add(new THREE.SphereGeometry(7, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), stoneMat(3, 1), 360, 7, 330);  // palace dome
+
+// Maiden Tower: the round stone tower with its buttress, lit from below.
+const maiden = new THREE.Group(); maiden.position.set(455, 0, 462); scene.add(maiden);
+const mt = new THREE.Mesh(new THREE.CylinderGeometry(8, 8.6, 29, 48), stoneMat(6, 3)); mt.position.y = 14.5; maiden.add(mt);
+const but = new THREE.Mesh(box, stoneMat(1, 3)); but.scale.set(7, 26, 9); but.position.set(8, 13, 0); maiden.add(but);
+for (let a = 0; a < 24; a++) { const c = new THREE.Mesh(box, wallMat); c.scale.set(1.3, 1.2, 1.3); c.position.set(Math.cos(a / 24 * 6.283) * 7.8, 29.6, Math.sin(a / 24 * 6.283) * 7.8); maiden.add(c); }
+const flood = new THREE.SpotLight('#ffb870', 900, 80, .5, .6, 1.5); flood.position.set(455, 1, 490); flood.target.position.set(455, 22, 462); scene.add(flood, flood.target);
+
+// Flame Towers on Highland Park: three curved towers whose LED skin shows rising flames.
+function hill(r, top) {                                               // a park mound that rises from its edges
+  const w = r.x1 - r.x0, d = r.z1 - r.z0, geo = new THREE.PlaneGeometry(w, d, 60, 50).rotateX(-Math.PI / 2), p = geo.attributes.position;
+  for (let n = 0; n < p.count; n++) { const e = Math.min(1 - Math.abs(p.getX(n)) / (w / 2), 1 - Math.abs(p.getZ(n)) / (d / 2)); p.setY(n, top * Math.pow(clamp(e * 5, 0, 1), .8)); }
+  geo.computeVertexNormals();
+  add(geo, new THREE.MeshStandardMaterial({ color: '#1d2a1c', roughness: 1, flatShading: true }), (r.x0 + r.x1) / 2, 0, (r.z0 + r.z1) / 2);
+  solids.push(r);
+}
+hill({ x0: WEST, x1: HILL.x1, z0: HILL.z0, z1: HILL.z1 }, 34);   // Highland Park
+hill({ x0: WEST, x1: 9, z0: 0, z1: HILL.z0 - 9 }, 18);            // the slope west of the centre
+const flameCanvas = canvas(256, 512, (g, W, H) => {
+  g.fillStyle = '#120400'; g.fillRect(0, 0, W, H); const r = seeded(5);
+  for (let n = 0; n < 34; n++) {                                     // flame tongues, drawn twice so the texture wraps vertically
+    const x = r() * W, w = 30 + r() * 50, h = 160 + r() * 260, y = r() * H;
+    for (const oy of [0, -H, H]) {
+      const gr = g.createLinearGradient(0, y + oy, 0, y + oy - h); gr.addColorStop(0, '#ffe680'); gr.addColorStop(.35, '#ff9a1f'); gr.addColorStop(.75, '#e2360c'); gr.addColorStop(1, '#e2360c00');
+      g.fillStyle = gr; g.beginPath(); g.moveTo(x - w / 2, y + oy); g.quadraticCurveTo(x - w * .7, y + oy - h * .5, x + (r() - .5) * w, y + oy - h); g.quadraticCurveTo(x + w * .7, y + oy - h * .5, x + w / 2, y + oy); g.fill();
+    }
+  }
+});
+const flames = texture(flameCanvas, true); flames.repeat.set(2, 1.2);
+function flameGeometry(H, R, bend) {
+  const rings = 48, sides = 40, pos = [], uv = [], idx = [];
+  for (let j = 0; j <= rings; j++) {
+    const t = j / rings, s = Math.pow(1 - t, .62) * (1 + .12 * Math.sin(t * Math.PI)), ox = bend * t * t;
+    for (let i = 0; i <= sides; i++) { const a = i / sides * Math.PI * 2; pos.push(ox + Math.cos(a) * R * s, t * H, Math.sin(a) * R * .72 * s); uv.push(i / sides, t); }
+  }
+  for (let j = 0; j < rings; j++) for (let i = 0; i < sides; i++) { const a = j * (sides + 1) + i, b = a + sides + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g;
+}
+const flameMat = new THREE.MeshStandardMaterial({ color: '#0a0604', emissive: '#ffffff', emissiveMap: flames, emissiveIntensity: 1.15, roughness: .3, metalness: .6, envMap: env });
+for (const [x, z, h, r, bend, rot] of [[110, 400, 150, 16, -12, .3], [150, 360, 165, 15, 10, 2.4], [80, 345, 135, 14, -8, 4.4]]) {
+  const t = add(flameGeometry(h, r, bend), flameMat, x, 33, z); t.rotation.y = rot;
+}
+
+// Baku Eye on the Boulevard: a slowly turning wheel with LED rims.
+const eye = new THREE.Group(); eye.position.set(560, 30, 568); scene.add(eye);
+const led = new THREE.MeshStandardMaterial({ color: '#cfe8ff', emissive: '#9fd4ff', emissiveIntensity: 3 });
+for (const zz of [-1.2, 1.2]) { const ring = new THREE.Mesh(new THREE.TorusGeometry(27, .35, 8, 96), led); ring.position.z = zz; eye.add(ring); }
+for (let k = 0; k < 24; k++) {
+  const a = k / 24 * Math.PI * 2;
+  const spoke = new THREE.Mesh(box, led); spoke.scale.set(27, .12, .12); spoke.position.set(Math.cos(a) * 13.5, Math.sin(a) * 13.5, 0); spoke.rotation.z = a; eye.add(spoke);
+  const cab = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: '#e0e6ee', emissive: '#ffe9c0', emissiveIntensity: .8 })); cab.scale.set(2.2, 2.6, 2.2); cab.position.set(Math.cos(a) * 28, Math.sin(a) * 28, 0); eye.add(cab);
+}
+for (const s of [-1, 1]) { const leg = add(box, new THREE.MeshStandardMaterial({ color: '#c8ccd4', metalness: .6, roughness: .4 }), 560 + s * 9, 15, 568, 1, 32, 1); leg.rotation.z = s * .3; }
+
+// Carpet Museum: a building shaped like a rolled carpet, with a carpet pattern on its skin.
+const carpet = texture(canvas(512, 256, (g, W, H) => {
+  g.fillStyle = '#7a1420'; g.fillRect(0, 0, W, H); g.strokeStyle = '#e8c27a'; g.lineWidth = 6; g.strokeRect(10, 10, W - 20, H - 20);
+  g.fillStyle = '#1d2a5a'; g.fillRect(24, 24, W - 48, H - 48);
+  for (let k = 0; k < 4; k++) { const cx = 80 + k * 117; g.fillStyle = '#a3202d'; g.beginPath(); g.moveTo(cx, 50); g.lineTo(cx + 44, H / 2); g.lineTo(cx, H - 50); g.lineTo(cx - 44, H / 2); g.fill(); g.fillStyle = '#e8c27a'; g.beginPath(); g.arc(cx, H / 2, 12, 0, 7); g.fill(); }
+}));
+const cm = add(new THREE.CylinderGeometry(11, 11, 62, 48, 1, false, 0, Math.PI * 1.55), new THREE.MeshStandardMaterial({ map: carpet, emissiveMap: carpet, emissive: '#ffffff', emissiveIntensity: .35, side: THREE.DoubleSide, roughness: .8 }), 380, 9, 562);
+cm.rotation.set(0, 0, Math.PI / 2);
+
+// Heydar Aliyev Center: flowing white shells on a white plaza.
+add(flat, new THREE.MeshStandardMaterial({ color: '#8e9096', roughness: .7 }), (HAC.x0 + HAC.x1) / 2, .05, (HAC.z0 + HAC.z1) / 2, HAC.x1 - HAC.x0, 1, HAC.z1 - HAC.z0);
+const white = new THREE.MeshStandardMaterial({ color: '#f4f6fa', emissive: '#dfe8ff', emissiveIntensity: .35, roughness: .25, metalness: .1, envMap: env, side: THREE.DoubleSide });
+const shell = (pts, x, z, sx, sy, sz, rot, from, len) => { const m = add(new THREE.LatheGeometry(pts.map(([a, b]) => new THREE.Vector2(a, b)), 48, from, len), white, x, 0, z, sx, sy, sz); m.rotation.y = rot; };
+shell([[30, 0], [34, 6], [33, 14], [27, 21], [17, 25], [6, 26], [0, 26]], 800, 120, 1.25, 1, .9, .2, 0, Math.PI * 1.25);
+shell([[22, 0], [25, 5], [23, 12], [16, 17], [6, 19], [0, 19]], 815, 190, 1.1, 1, .8, 3.3, 0, Math.PI * 1.1);
+solids.push({ x0: HAC.x0 + 8, x1: HAC.x1 - 8, z0: HAC.z0 + 20, z1: HAC.z1 - 20 });
+
+// National Flag Square at the west end of the avenue: a very tall pole and a waving flag.
+add(flat, new THREE.MeshStandardMaterial({ color: '#5a554d', roughness: .8 }), -140, .05, 560, 160, 1, 50);
+add(new THREE.CylinderGeometry(.6, 1.6, 120, 16), new THREE.MeshStandardMaterial({ color: '#d0d4da', metalness: .8, roughness: .3, envMap: env }), -140, 60, 560);
+const flagTex = texture(canvas(600, 300, (g, W, H) => {
+  g.fillStyle = '#00b5e2'; g.fillRect(0, 0, W, H / 3); g.fillStyle = '#ef3340'; g.fillRect(0, H / 3, W, H / 3); g.fillStyle = '#509e2f'; g.fillRect(0, 2 * H / 3, W, H / 3);
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(W / 2 - 12, H / 2, 45, 0, 7); g.fill(); g.fillStyle = '#ef3340'; g.beginPath(); g.arc(W / 2, H / 2, 37, 0, 7); g.fill();
+  g.fillStyle = '#fff'; g.beginPath();
+  for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2 - Math.PI / 2, r = k % 2 ? 11 : 24; g.lineTo(W / 2 + 46 + Math.cos(a) * r, H / 2 + Math.sin(a) * r); }
+  g.fill();
+}));
+const flagGeo = new THREE.PlaneGeometry(36, 18, 30, 12).translate(18, 0, 0);
+const flagBase = flagGeo.attributes.position.array.slice();
+const flag = add(flagGeo, new THREE.MeshStandardMaterial({ map: flagTex, emissiveMap: flagTex, emissive: '#ffffff', emissiveIntensity: .45, side: THREE.DoubleSide, roughness: .8 }), -140, 108, 560);
+const flagLight = new THREE.SpotLight('#ffffff', 2500, 160, .25, .5, 1.3); flagLight.position.set(-140, 2, 600); flagLight.target.position.set(-130, 108, 560); scene.add(flagLight, flagLight.target);
+
+// ---------- Cars ----------
+const rubber = new THREE.MeshStandardMaterial({ color: '#111', roughness: .9 }), rimMat = new THREE.MeshStandardMaterial({ color: '#aaa', metalness: .9, roughness: .25, envMap: env });
+const glass = new THREE.MeshStandardMaterial({ color: '#0a0d18', metalness: .9, roughness: .05, envMap: env, envMapIntensity: 1.5 });
+const wheelGeo = new THREE.CylinderGeometry(.36, .36, .28, 18).rotateZ(Math.PI / 2), rimGeo = new THREE.CylinderGeometry(.2, .2, .3, 10).rotateZ(Math.PI / 2);
+function makeCar(color, taxi) {
+  const car = new THREE.Group(), body = new THREE.Group(); car.add(body);
+  const paintMat = new THREE.MeshStandardMaterial({ color, metalness: .35, roughness: .28, envMap: env, envMapIntensity: 1.2 });
+  const part = (mat, sx, sy, sz, x, y, z) => { const m = new THREE.Mesh(box, mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); body.add(m); return m; };
+  part(paintMat, 1.86, .5, 4.4, 0, .6, 0);
+  if (taxi) {                                           // Baku's purple cabs: tall, boxy, with a lit roof sign
+    part(glass, 1.7, .8, 2.4, 0, 1.25, -.35); part(paintMat, 1.62, .1, 2.2, 0, 1.68, -.35);
+    part(new THREE.MeshStandardMaterial({ color: '#ffe9a0', emissive: '#ffd86a', emissiveIntensity: 3 }), .7, .2, .3, 0, 1.83, 0);
+  } else { part(paintMat, 1.8, .14, 1.3, 0, .9, 1.45); part(glass, 1.62, .52, 2.1, 0, 1.1, -.25); part(paintMat, 1.5, .08, 1.6, 0, 1.38, -.3); }
+  part(rubber, 1.9, .22, .2, 0, .42, 2.22); part(rubber, 1.9, .22, .2, 0, .42, -2.22);
+  const head = new THREE.MeshStandardMaterial({ color: '#fff6d8', emissive: '#fff6d8', emissiveIntensity: 5 });
+  const tail = new THREE.MeshStandardMaterial({ color: '#ff2040', emissive: '#ff2040', emissiveIntensity: 1.5 });
+  for (const s of [-1, 1]) { part(head, .42, .14, .06, s * .62, .72, 2.21); part(tail, .46, .12, .06, s * .6, .74, -2.21); }
+  const wheels = [], fronts = [];
+  for (const [x, z] of [[-.9, 1.35], [.9, 1.35], [-.9, -1.4], [.9, -1.4]]) {
+    const pivot = new THREE.Group(); pivot.position.set(x, .36, z); car.add(pivot);
+    const w = new THREE.Group(); w.add(new THREE.Mesh(wheelGeo, rubber), new THREE.Mesh(rimGeo, rimMat)); pivot.add(w);
+    wheels.push(w); if (z > 0) fronts.push(pivot);
+  }
+  const shadow = new THREE.Mesh(flat, new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: .55, depthWrite: false }));
+  shadow.scale.set(2.6, 1, 5); shadow.position.y = .02; car.add(shadow);
+  scene.add(car);
+  return { group: car, body, wheels, fronts, tail };
+}
+const me = makeCar('#ff7a2e');
+for (const s of [-1, 1]) { const l = new THREE.SpotLight('#fff1d0', 140, 60, .42, .5, 1.4); l.position.set(s * .6, .8, 2.2); l.target.position.set(s * 1.5, 0, 22); me.group.add(l, l.target); }
+const car = { x: 600, z: AV, h: -Math.PI / 2, vx: 0, vz: 0, steer: 0, vf: 0, vs: 0 };
+const input = { up: 0, down: 0, left: 0, right: 0, drift: 0 };
+
+// Traffic: purple cabs and private cars, circling blocks and cruising the avenue in both directions.
+const traffic = [];
+const loop = (pts, v, color, taxi) => {
+  const path = pts.map(([x, z]) => new THREE.Vector2(x, z)), len = path.reduce((s, p, n) => s + p.distanceTo(path[(n + 1) % path.length]), 0);
+  traffic.push({ c: makeCar(color, taxi), path, len, s: rnd() * len, v, h: 0 });
+};
+for (let k = 0; k < 4; k++) loop([[EAST - 20, AV - 7.5], [WEST + 40, AV - 7.5], [WEST + 40, AV + 7.5], [EAST - 20, AV + 7.5]], 13 + rnd() * 5, k % 2 ? '#5b2a86' : ['#e6e6ea', '#1d1d24'][k % 2], k % 2 === 1);
+const lane = ST / 2 - 3.2;
+for (let k = 0; k < 9; k++) {
+  const b = blocks[(rnd() * blocks.length) | 0], x0 = b.x0 - lane, x1 = b.x1 + lane, z0 = b.z0 - lane, z1 = b.z1 + lane;
+  loop([[x0, z0], [x1, z0], [x1, z1], [x0, z1]], 8 + rnd() * 4, rnd() < .45 ? '#5b2a86' : ['#e6e6ea', '#1d1d24', '#2a4bd8', '#8a8f99'][(rnd() * 4) | 0], rnd() < .45);
+}
+
+// Tyre marks and smoke while drifting.
+const MARKS = 1400;
+const marks = new THREE.InstancedMesh(new THREE.PlaneGeometry(.26, .8).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: .5, depthWrite: false }), MARKS);
+marks.count = 0; scene.add(marks);
+let markAt = 0, markN = 0;
+const puff = texture(canvas(64, 64, (g) => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, '#ffffffaa'); r.addColorStop(1, '#ffffff00'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); }));
+const smoke = Array.from({ length: 70 }, () => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: '#8f8a98', transparent: true, opacity: 0, depthWrite: false })); scene.add(s); return { s, life: 0 }; });
+let puffAt = 0;
+
+// GPS: Baku landmarks, each marked by a beam of light.
+const PLACES = [['Maiden Tower', 470, AV], ['Flame Towers', 260, 470], ['Heydar Aliyev Center', 740, 190], ['Baku Eye', 560, AV], ['National Flag Square', -120, AV]];
+const beam = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 120, 24, 1, true), new THREE.MeshBasicMaterial({ color: '#3fb6ff', transparent: true, opacity: .2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+const ring = new THREE.Mesh(new THREE.RingGeometry(2.6, 3.2, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#3fb6ff', transparent: true, blending: THREE.AdditiveBlending }));
+scene.add(beam, ring);
+let target = 0, arrivedAt = -1e9, arrivedName = '', demo = true, shake = 0;
+
+// ---------- Physics ----------
+function physics(dt) {
+  const fx = Math.sin(car.h), fz = Math.cos(car.h), rx = -Math.cos(car.h), rz = Math.sin(car.h);
+  let vf = car.vx * fx + car.vz * fz, vs = car.vx * rx + car.vz * rz;
+  if (input.up) vf += 13 * input.up * dt;
+  if (input.down) vf -= (vf > .5 ? 26 : 9) * input.down * dt;
+  vf *= 1 - .22 * dt; vf = clamp(vf, -10, 46);
+  vs *= Math.exp(-(input.drift ? 1.3 : 7.5) * dt);
+  car.steer += (input.right - input.left - car.steer) * Math.min(1, dt * 7);
+  const grip = 1 - Math.min(.5, Math.abs(vf) / 90);
+  car.h -= car.steer * (input.drift ? 2.3 : 1.65) * clamp(vf / 10, -1, 1) * grip * dt;
+  car.vx = fx * vf + rx * vs; car.vz = fz * vf + rz * vs;
+  car.x += car.vx * dt; car.z += car.vz * dt;
+  car.vf = vf; car.vs = vs;
+  collide();
+}
+function bump(nx, nz, depth) {
+  car.x += nx * depth; car.z += nz * depth;
+  const vn = car.vx * nx + car.vz * nz;
+  if (vn < 0) { car.vx -= nx * vn * 1.4; car.vz -= nz * vn * 1.4; car.vx *= .65; car.vz *= .65; shake = Math.min(.6, -vn / 25); }
+}
+function collide() {
+  const R = 1.4;
+  for (const s of solids) {
+    if (car.x < s.x0 - R || car.x > s.x1 + R || car.z < s.z0 - R || car.z > s.z1 + R) continue;
+    const cx = clamp(car.x, s.x0, s.x1), cz = clamp(car.z, s.z0, s.z1), dx = car.x - cx, dz = car.z - cz, d = Math.hypot(dx, dz);
+    if (d > 0 && d < R) bump(dx / d, dz / d, R - d);
+    else if (d === 0) bump(0, car.z < (s.z0 + s.z1) / 2 ? -1 : 1, R);
+  }
+  if (!demo) for (const t of traffic) {
+    const dx = car.x - t.c.group.position.x, dz = car.z - t.c.group.position.z, d = Math.hypot(dx, dz);
+    if (d > 0 && d < 3.6) bump(dx / d, dz / d, 3.6 - d);
+  }
+  const south = car.x < -60 ? COAST + 8 : AV1 + 1;                     // the Boulevard is for walking; Flag Square is open
+  if (car.x < WEST + R) bump(1, 0, WEST + R - car.x);
+  if (car.x > EAST - R) bump(-1, 0, car.x - EAST + R);
+  if (car.z < R) bump(0, 1, R - car.z);
+  if (car.z > south - R) bump(0, -1, car.z - south + R);
+}
+
+// Demo driver: west along the avenue past the Old City, up past the Flame Towers, around and back.
+const LAP = [[260, AV], [260, 140], [740, 140], [740, AV]].map(([x, z]) => ({ x, z }));
+let wp = 0, stuck = 0, reverse = 0;
+function autopilot(dt) {
+  const p = LAP[wp], q = LAP[(wp + 1) % LAP.length], dx = p.x - car.x, dz = p.z - car.z, dist = Math.hypot(dx, dz);
+  if (dist < 13) wp = (wp + 1) % LAP.length;
+  let diff = Math.atan2(dx, dz) - car.h; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+  let turn = Math.atan2(q.x - p.x, q.z - p.z) - Math.atan2(dx, dz); turn = Math.abs(Math.atan2(Math.sin(turn), Math.cos(turn)));
+  const speed = Math.hypot(car.vx, car.vz);
+  stuck = speed < 2 && !reverse ? stuck + dt : 0;
+  if (stuck > .6) reverse = 1;
+  if (reverse) { reverse = Math.max(0, reverse - dt); Object.assign(input, { up: 0, down: 1, drift: 0, left: diff < 0 ? 1 : 0, right: diff > 0 ? 1 : 0 }); return; }
+  input.left = diff > .03 ? Math.min(1, diff * 3) : 0;
+  input.right = diff < -.03 ? Math.min(1, -diff * 3) : 0;
+  const braking = dist < 48 && turn > 1 && speed > 13;
+  input.down = braking ? 1 : 0;
+  input.up = braking ? 0 : Math.abs(diff) > 1 ? .4 : 1;
+  input.drift = Math.abs(diff) > .4 && speed > 9 ? 1 : 0;
+}
+
+// ---------- Minimap ----------
+// The whole map is painted once; each frame shows a turning, round window of it around the car.
+const MX = WEST - 40, MZ = -40, MS = 1;                                  // map image origin and pixels per metre
+const mapImg = canvas(EAST - WEST + 80, COAST + 200, (g, W, H) => {
+  g.fillStyle = '#2b2a2f'; g.fillRect(0, 0, W, H);
+  const R = (r, c) => { g.fillStyle = c; g.fillRect(r.x0 - MX, r.z0 - MZ, r.x1 - r.x0, r.z1 - r.z0); };
+  for (const b of blocks) R(b, '#4a4652');
+  R({ x0: WEST, x1: EAST, z0: AV1, z1: COAST }, '#2f4a35');
+  R({ x0: MX, x1: EAST + 40, z0: COAST, z1: COAST + 200 }, '#123553');
+  R(HILL, '#29492c'); R(OLD, '#8a7356'); R(HAC, '#d8dce4');
+  g.strokeStyle = '#c9a97a'; g.lineWidth = 4; g.strokeRect(OLD.x0 - MX, OLD.z0 - MZ, OLD.x1 - OLD.x0, OLD.z1 - OLD.z0);
+  g.fillStyle = '#ff9a1f'; for (const [x, z] of [[110, 400], [150, 360], [80, 345]]) { g.beginPath(); g.arc(x - MX, z - MZ, 7, 0, 7); g.fill(); }
+  g.fillStyle = '#d9c3a0'; g.beginPath(); g.arc(455 - MX, 462 - MZ, 9, 0, 7); g.fill();
+  g.strokeStyle = '#9fd4ff'; g.lineWidth = 3; g.beginPath(); g.arc(560 - MX, 568 - MZ, 12, 0, 7); g.stroke();
+  g.fillStyle = '#fff'; g.font = 'bold 26px system-ui'; g.fillText('CASPIAN SEA', 300 - MX, COAST + 60 - MZ);
+});
+const mini = document.getElementById('mini'), mg = mini.getContext('2d');
+function drawMini(tp) {
+  const S = mini.width, zoom = 1.25;
+  mg.clearRect(0, 0, S, S); mg.save();
+  mg.beginPath(); mg.arc(S / 2, S / 2, S / 2, 0, 7); mg.clip();
+  mg.fillStyle = '#123553'; mg.fillRect(0, 0, S, S);
+  mg.translate(S / 2, S / 2 + S * .12); mg.scale(zoom, zoom);
+  mg.rotate(-Math.PI / 2 - Math.atan2(Math.cos(car.h), Math.sin(car.h)));  // the car's heading points up
+  mg.drawImage(mapImg, MX - car.x, MZ - car.z);
+  const tx = clamp(tp.x - car.x, -140, 140), tz = clamp(tp.z - car.z, -140, 140);
+  mg.fillStyle = '#3fb6ff'; mg.beginPath(); mg.arc(tx, tz, 7, 0, 7); mg.fill();
+  for (const t of traffic) { mg.fillStyle = '#ffffffaa'; mg.fillRect(t.c.group.position.x - car.x - 1.5, t.c.group.position.z - car.z - 1.5, 3, 3); }
+  mg.restore();
+  mg.save(); mg.translate(S / 2, S / 2 + S * .12); mg.fillStyle = '#ffd25a'; mg.strokeStyle = '#050a1a'; mg.lineWidth = 3;
+  mg.beginPath(); mg.moveTo(0, -16); mg.lineTo(11, 12); mg.lineTo(0, 6); mg.lineTo(-11, 12); mg.closePath(); mg.stroke(); mg.fill(); mg.restore();
+}
+
+// ---------- HUD and input ----------
+const $ = (id) => document.getElementById(id);
+const KEYS = { ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ' ': 'drift' };
+const takeOver = () => { if (demo) { demo = false; for (const k in input) input[k] = 0; $('hint').innerHTML = '↑ ↓ ← → drive<br>space drift'; } };
+addEventListener('keydown', (e) => { const k = KEYS[e.key]; if (k) { e.preventDefault(); takeOver(); input[k] = 1; } });
+addEventListener('keyup', (e) => { const k = KEYS[e.key]; if (k) input[k] = 0; });
+for (const btn of document.querySelectorAll('.pad button')) {
+  btn.addEventListener('pointerdown', () => { takeOver(); input[btn.dataset.k] = 1; });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, () => (input[btn.dataset.k] = 0));
+}
+
+// ---------- Loop ----------
+const look = new THREE.Vector3(), want = new THREE.Vector3(), lookAt = new THREE.Vector3();
+let last = null;
+function frame(t) {
+  const dt = Math.min(.05, last === null ? 0 : (t - last) / 1000); last = t;
+  if (demo) autopilot(dt);
+  for (let k = 0; k < 3; k++) physics(dt / 3);
+  const speed = Math.hypot(car.vx, car.vz), fx = Math.sin(car.h), fz = Math.cos(car.h);
+
+  me.group.position.set(car.x, 0, car.z); me.group.rotation.y = car.h;
+  me.body.rotation.z += (clamp(-car.vs * .012 - car.steer * speed * .0025, -.09, .09) - me.body.rotation.z) * Math.min(1, dt * 8);
+  me.body.rotation.x += ((input.down ? .035 : input.up ? -.02 : 0) - me.body.rotation.x) * Math.min(1, dt * 6);
+  for (const w of me.wheels) w.rotation.x += car.vf * dt / .36;
+  for (const p of me.fronts) p.rotation.y = -car.steer * .45;
+  me.tail.emissiveIntensity = input.down ? 6 : 1.5;
+
+  for (const c of traffic) {
+    c.s = (c.s + c.v * dt) % c.len;
+    let s = c.s, n = 0; const L = c.path.length;
+    while (s > c.path[n].distanceTo(c.path[(n + 1) % L])) { s -= c.path[n].distanceTo(c.path[(n + 1) % L]); n++; }
+    const a = c.path[n], b = c.path[(n + 1) % L], u = s / a.distanceTo(b);
+    c.c.group.position.set(a.x + (b.x - a.x) * u, 0, a.y + (b.y - a.y) * u);
+    let dh = Math.atan2(b.x - a.x, b.y - a.y) - c.h; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); c.h += dh * Math.min(1, dt * 5);
+    c.c.group.rotation.y = c.h;
+    for (const w of c.c.wheels) w.rotation.x += c.v * dt / .36;
+  }
+
+  // Moving parts of the city: the flames rise, the wheel turns, the flag waves.
+  flames.offset.y -= dt * .22;
+  eye.rotation.z += dt * .05;
+  const fp = flagGeo.attributes.position;
+  for (let n = 0; n < fp.count; n++) { const x = flagBase[n * 3], y = flagBase[n * 3 + 1]; fp.setZ(n, Math.sin(x * .28 - t * .004 + y * .05) * x * .07); }
+  fp.needsUpdate = true; flagGeo.computeVertexNormals();
+
+  const sliding = Math.abs(car.vs) > 4 || (input.drift && speed > 10);
+  if (sliding && t - markAt > 22) {
+    markAt = t;
+    for (const s of [-1, 1]) {
+      tmp.position.set(car.x - fx * 1.4 - Math.cos(car.h) * .9 * s, .05, car.z - fz * 1.4 + Math.sin(car.h) * .9 * s);
+      tmp.rotation.set(0, car.h, 0); tmp.scale.set(1, 1, 1); tmp.updateMatrix();
+      marks.setMatrixAt(markN++ % MARKS, tmp.matrix); marks.count = Math.min(MARKS, markN);
+    }
+    marks.instanceMatrix.needsUpdate = true;
+    const p = smoke[puffAt++ % smoke.length]; p.life = 1; p.s.position.set(car.x - fx * 2.2, .6, car.z - fz * 2.2);
+  }
+  for (const p of smoke) if (p.life > 0) { p.life -= dt * .9; p.s.material.opacity = p.life * .28; p.s.scale.setScalar(1.5 + (1 - p.life) * 4); p.s.position.y += dt * .8; }
+
+  const [name, tx, tz] = PLACES[target], tp = { x: tx, z: tz }, dist = Math.hypot(tx - car.x, tz - car.z);
+  beam.position.set(tx, 60, tz); ring.position.set(tx, .08, tz); ring.scale.setScalar(1 + (t / 900 % 1) * .6);
+  if (dist < 12 && t - arrivedAt > 2500) { arrivedAt = t; arrivedName = name; target = (target + 1) % PLACES.length; }
+  $('arrived').classList.toggle('on', t - arrivedAt < 2000); $('arrivedAt').textContent = arrivedName;
+  $('place').textContent = name; $('dist').textContent = Math.round(dist) + ' m';
+  $('arrow').style.rotate = car.h - Math.atan2(tx - car.x, tz - car.z) + 'rad';
+  $('kmh').textContent = Math.round(speed * 3.6);
+  $('street').textContent = car.z > AV0 - 3 ? 'Neftchilar Avenue · Baku' : inside(OLD, car.x, car.z, 20) ? 'Old City · Baku' : 'Baku';
+  drawMini(tp);
+
+  shake *= Math.exp(-dt * 8);
+  want.set(car.x - fx * (6.2 + speed * .05), 2.5 + speed * .015, car.z - fz * (6.2 + speed * .05));
+  camera.position.lerp(want, 1 - Math.exp(-dt * 4.5));
+  camera.position.y += Math.sin(t * .09) * shake;
+  look.lerp(lookAt.set(car.x + fx * 5, 1.3, car.z + fz * 5), 1 - Math.exp(-dt * 9));
+  camera.lookAt(look);
+  camera.fov = 56 + speed * .4; camera.updateProjectionMatrix();
+
+  composer.render();
+  requestAnimationFrame(frame);
+}
+camera.position.set(car.x + 8, 3, car.z); look.set(car.x - 6, 1, car.z);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

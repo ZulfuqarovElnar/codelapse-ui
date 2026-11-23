@@ -4,6 +4,8 @@ Small, playful UI components from the [Codelapse](https://www.youtube.com/@codel
 Each one is a single `index.html` file: plain HTML, CSS and JavaScript, no build step, no dependencies.
 Open it in a browser, or copy the parts you need.
 
+**Play online:** [Drive Baku](https://zulfuqarovelnar.github.io/codelapse-ui/drive-baku/) · [Night city](https://zulfuqarovelnar.github.io/codelapse-ui/drive-city/) · every component runs at `https://zulfuqarovelnar.github.io/codelapse-ui/<folder>/`
+
 | Component | Folder |
 |---|---|
 | Book button that cuts itself ✂️ | [scissor-button](scissor-button) |
@@ -26,12 +28,13 @@ Open it in a browser, or copy the parts you need.
 | Character card that opens as you scroll 🏄 | [character-reveal](character-reveal) |
 | Scroll to drive: a GPS route on a 3D map 🚗 | [scroll-map-drive](scroll-map-drive) |
 | A drivable 3D night city: arrow keys, drifting, traffic, GPS (Three.js) 🌃 | [drive-city](drive-city) |
+| Drive Baku at night: Neftchilar Avenue, Old City, Maiden Tower, Flame Towers, minimap (Three.js) 🇦🇿 | [drive-baku](drive-baku) |
 | Character cards that morph into a page (View Transitions) ✨ | [view-transition-cards](view-transition-cards) |
 
 The scroll effects use CSS scroll-driven animations (`animation-timeline`), supported in Chrome/Edge 115+, Safari 26+ and Firefox 159+.
 `view-transition-cards` uses the View Transitions API (Chrome/Edge 111+, Safari 18+, Firefox 144+); elsewhere the card simply opens without the animation.
 The photos in `character-reveal` and `view-transition-cards` are public domain (CC0), from Wikimedia Commons: [surfer](https://commons.wikimedia.org/wiki/File:The_Last_Ride_(Unsplash).jpg), [motel sign](https://commons.wikimedia.org/wiki/File:Ambassador_Motel.jpg), [lifeguard tower](https://commons.wikimedia.org/wiki/File:Lifeguarded_(Unsplash).jpg).
 
-`drive-city` loads [Three.js](https://threejs.org) (MIT) from a CDN; everything else in it is in the one file.
+`drive-city` and `drive-baku` load [Three.js](https://threejs.org) (MIT) from a CDN; everything else is in the one file. The Baku landmarks are simplified fan-made models.
 
 MIT licensed. Use them in your own projects, paid or free.
