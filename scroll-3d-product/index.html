@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apple-style 3D product scroll (exploded view)</title>
+<style>
+  body { margin: 0; height: 600vh; background: radial-gradient(70% 50% at 50% 48%, #24242b, #000 75%) fixed; color: #f5f5f7; font-family: system-ui, sans-serif; }
+  canvas { position: fixed; inset: 0; }
+  .say { position: fixed; left: 0; right: 0; margin: 0; padding: 0 6vw; text-align: center; opacity: 0; pointer-events: none; }
+  .say small { display: block; margin-bottom: 10px; font: 600 clamp(14px, 3vw, 20px) system-ui; letter-spacing: .3em; text-transform: uppercase; color: #ff8a3d; }
+  .hero { top: 8vh; font: 800 clamp(48px, 13vw, 120px)/.95 system-ui; letter-spacing: -.045em; }
+  .hero span { display: block; margin-top: 14px; font: 500 clamp(17px, 3.8vw, 26px) system-ui; letter-spacing: 0; color: #a1a1a6; }
+  .inside { top: 9vh; font: 800 clamp(32px, 8vw, 72px)/1 system-ui; letter-spacing: -.035em; }
+  .buy { bottom: 8vh; font: 800 clamp(34px, 9vw, 80px)/1 system-ui; letter-spacing: -.04em; }
+  .buy b { display: inline-block; margin-top: 18px; padding: 14px 32px; border-radius: 99px; background: #ff6a2b; color: #fff; font: 700 clamp(17px, 3.6vw, 24px) system-ui; letter-spacing: 0; }
+  .hint { bottom: 5vh; font: 600 14px system-ui; letter-spacing: .25em; color: #86868b; }
+
+  /* Labels follow their part: the script projects each part to the screen every frame. */
+  .tag { position: fixed; left: 0; top: 0; width: 0; height: 0; opacity: 0; pointer-events: none; }
+  .tag::before { content: ''; position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: #ff8a3d; box-shadow: 0 0 0 4px #ff8a3d44; }
+  .tag::after { content: ''; position: absolute; left: -1px; width: 2px; height: 36px; background: #ffffff66; }
+  .tag p { position: absolute; margin: 0; translate: -50% 0; white-space: nowrap; font: 600 clamp(12px, 2.6vw, 16px)/1.25 system-ui; color: #a1a1a6; text-align: center; }
+  .tag p b { display: block; font: 800 clamp(15px, 3.4vw, 22px) system-ui; color: #f5f5f7; }
+  .tag.up::after { bottom: 6px; } .tag.up p { bottom: 46px; }
+  .tag.down::after { top: 6px; } .tag.down p { top: 46px; }
+</style>
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                 "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+  <h1 class="say hero" data-show="0 .16"><small>Introducing</small>Aura One<span>Hear everything. Feel nothing else.</span></h1>
+  <p class="say hint" data-show="0 .06">SCROLL ↓</p>
+  <h2 class="say inside" data-show=".26 .42"><small>Inside</small>Designed from the inside out.</h2>
+  <h2 class="say buy" data-show=".88 1.1">Aura One. $349<br><b>Pre-order</b></h2>
+  <div class="tag down" data-part="band" data-at="0 1.98 0"><p><b>Steel band</b>Bends, never breaks</p></div>
+  <div class="tag down" data-part="cushion" data-at=".92 -.58 0"><p><b>Memory foam</b>20 h comfort</p></div>
+  <div class="tag up" data-part="driver" data-at="1 .36 0"><p><b>40 mm driver</b>Graphene cone</p></div>
+  <div class="tag down" data-part="board" data-at="1.16 -.26 0"><p><b>40 h battery</b>+ noise cancelling</p></div>
+  <div class="tag up" data-part="shell" data-at="1.12 .56 0"><p><b>Aluminium</b>Recycled shell</p></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+const camera = new THREE.PerspectiveCamera(30, 1, .1, 50);
+const key = new THREE.DirectionalLight('#ffffff', 2.2); key.position.set(-3, 5, 4); scene.add(key);
+const rim = new THREE.DirectionalLight('#ff9a5c', 3); rim.position.set(3, 2, -4); scene.add(rim);
+
+// Materials: anodised aluminium, polished steel, soft fabric, the driver and its gold ring, a circuit board.
+const M = (o) => new THREE.MeshPhysicalMaterial(o);
+const alu = M({ color: '#d9d2c5', metalness: .75, roughness: .32, clearcoat: .4 });
+const steel = M({ color: '#cfd0d4', metalness: 1, roughness: .18 });
+const fabric = M({ color: '#2a2a30', roughness: .95, sheen: 1, sheenColor: '#6a6a75' });
+const cone = M({ color: '#141416', roughness: .45, metalness: .3 });
+const gold = M({ color: '#e0b46a', metalness: 1, roughness: .25 });
+const pcb = M({ color: '#1f7a55', roughness: .55 });
+const add = (parent, geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m); return m; };
+
+// One side of the headphones, facing +x. The left side is the same group mirrored.
+// Every part remembers where it sits and how far it moves out when the product explodes.
+const parts = [];
+const part = (name, parent, out) => { const g = new THREE.Group(); g.name = name; g.userData.out = out; parent.add(g); parts.push(g); return g; };
+function side(mirror) {
+  const s = new THREE.Group(); s.scale.x = mirror ? -1 : 1;
+  const cup = new THREE.LatheGeometry([[0, 0], [.3, .01], [.47, .04], [.55, .12], [.57, .24], [.54, .32]].map(([r, y]) => new THREE.Vector2(r, y)), 64);
+  add(part('shell', s, new THREE.Vector3(1.5, 0, 0)), cup.rotateZ(Math.PI / 2), alu, 1.32);
+  const d = part('driver', s, new THREE.Vector3(.45, 0, 0));
+  add(d, new THREE.ConeGeometry(.34, .12, 48).rotateZ(-Math.PI / 2), cone, 1.02);
+  add(d, new THREE.TorusGeometry(.36, .025, 12, 64).rotateY(Math.PI / 2), gold, .97);
+  add(d, new THREE.SphereGeometry(.07, 24, 16), gold, 1.08);
+  if (!mirror) {
+    const b = part('board', s, new THREE.Vector3(.95, 0, 0));
+    add(b, new THREE.BoxGeometry(.03, .5, .42), pcb, 1.16);
+    add(b, new THREE.BoxGeometry(.04, .14, .14), cone, 1.18, .08, -.06);
+    add(b, new THREE.BoxGeometry(.04, .07, .1), gold, 1.18, -.13, .1);
+  }
+  add(part('cushion', s, new THREE.Vector3(-.5, 0, 0)), new THREE.TorusGeometry(.43, .14, 24, 64).rotateY(Math.PI / 2).scale(.75, 1, 1), fabric, .92);
+  const yoke = part('yoke', s, new THREE.Vector3(.2, .35, 0));
+  add(yoke, new THREE.TorusGeometry(.63, .035, 16, 64, Math.PI).rotateY(Math.PI / 2), steel, 1.14);
+  add(yoke, new THREE.CylinderGeometry(.035, .035, .3), steel, 1.14, .78);
+  return s;
+}
+const product = new THREE.Group();
+product.add(side(false), side(true));
+const arc = (r) => new THREE.CatmullRomCurve3(Array.from({ length: 25 }, (_, i) => {
+  const a = Math.PI * i / 24; return new THREE.Vector3(Math.cos(a) * 1.14, .93 + Math.sin(a) * r, 0);
+}));
+const band = part('band', product, new THREE.Vector3(0, .75, 0));
+add(band, new THREE.TubeGeometry(arc(1.05), 96, .045, 16), steel);
+add(band, new THREE.TubeGeometry(arc(.95), 96, .09, 16), fabric).scale.set(.93, 1, 1);
+for (const p of parts) p.userData.home = p.position.clone();
+scene.add(product);
+
+// The whole scroll story as keyframes: progress → turn, tilt and how exploded it is.
+const KEYS = [[0, -.7, .25, 0], [.18, .5, .12, 0], [.3, .3, .1, 0], [.46, .3, .15, 1], [.78, .45, .2, 1], [.9, -.6, .2, 0], [1, -.7, .25, 0]];
+const smooth = (x) => x * x * (3 - 2 * x);
+function pose(p) {
+  let i = 0; while (i < KEYS.length - 2 && p > KEYS[i + 1][0]) i++;
+  const [a, b] = [KEYS[i], KEYS[i + 1]], t = smooth(Math.min(1, Math.max(0, (p - a[0]) / (b[0] - a[0]))));
+  return a.slice(1).map((v, k) => v + (b[k + 1] - v) * t);
+}
+
+const says = [...document.querySelectorAll('[data-show]')].map((el) => [el, ...el.dataset.show.split(' ').map(Number)]);
+// Each label points at the edge of its part (data-at, in the part's own coordinates).
+const tags = [...document.querySelectorAll('.tag')].map((el) =>
+  [el, parts.find((p) => p.name === el.dataset.part), new THREE.Vector3(...el.dataset.at.split(' ').map(Number))]);
+const v = new THREE.Vector3();
+let shown = 0, last = performance.now();
+
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  const target = scrollY / (document.documentElement.scrollHeight - innerHeight || 1);
+  shown += (target - shown) * (1 - Math.exp(-dt * 7)); // ease towards the scroll position
+  const [turn, tilt, ex] = pose(shown);
+  product.rotation.set(tilt, turn, 0);
+  product.position.y = Math.sin(now / 900) * .03;
+  for (const p of parts) p.position.copy(p.userData.home).addScaledVector(p.userData.out, ex);
+
+  // Keep the product filling the width; when it explodes, slide over to the right side, where the labelled parts are.
+  const aspect = innerWidth / innerHeight, half = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const dist = Math.max((1.85 + ex * .25) / (half * aspect), 2.1 / half), lookX = ex * 1.3;
+  // Leave room for the headline at the top first, and for the price at the bottom at the end.
+  const lookY = .55 + ex * .25 + (1 - ex) * (shown < .6 ? .3 : -.25);
+  camera.position.set(lookX, lookY, dist); camera.lookAt(lookX, lookY, 0);
+
+  for (const [el, a, b] of says) {
+    const o = Math.min(1, a ? (shown - a) / .04 : 1, (b - shown) / .04); // a = 0: visible from the start
+    el.style.opacity = Math.max(0, o); el.style.translate = `0 ${(1 - Math.max(0, o)) * 20}px`;
+  }
+  for (const [el, p, at] of tags) {
+    p.localToWorld(v.copy(at)).project(camera);
+    el.style.left = Math.min(innerWidth - 80, Math.max(80, (v.x + 1) / 2 * innerWidth)) + 'px'; el.style.top = (1 - v.y) / 2 * innerHeight + 'px';
+    el.style.opacity = Math.max(0, (ex - .75) * 4);
+  }
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+function resize() { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

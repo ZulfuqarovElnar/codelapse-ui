@@ -31,11 +31,12 @@ Open it in a browser, or copy the parts you need.
 | A drivable 3D night city: arrow keys, drifting, traffic, GPS (Three.js) 🌃 | [drive-city](drive-city) |
 | Drive Baku at night: Neftchilar Avenue, Old City, Maiden Tower, Flame Towers, GPS route on a minimap, engine sounds (Three.js) 🇦🇿 | [drive-baku](drive-baku) |
 | Character cards that morph into a page (View Transitions) ✨ | [view-transition-cards](view-transition-cards) |
+| Apple-style 3D product scroll: the headphones turn, explode into labelled parts and come back together (Three.js) 🎧 | [scroll-3d-product](scroll-3d-product) |
 
 The scroll effects use CSS scroll-driven animations (`animation-timeline`), supported in Chrome/Edge 115+, Safari 26+ and Firefox 159+.
 `view-transition-cards` uses the View Transitions API (Chrome/Edge 111+, Safari 18+, Firefox 144+); elsewhere the card simply opens without the animation.
 The photos in `character-reveal` and `view-transition-cards` are public domain (CC0), from Wikimedia Commons: [surfer](https://commons.wikimedia.org/wiki/File:The_Last_Ride_(Unsplash).jpg), [motel sign](https://commons.wikimedia.org/wiki/File:Ambassador_Motel.jpg), [lifeguard tower](https://commons.wikimedia.org/wiki/File:Lifeguarded_(Unsplash).jpg).
 
-`drive-city` and `drive-baku` load [Three.js](https://threejs.org) (MIT) from a CDN; everything else is in the one file. The Baku landmarks are simplified fan-made models.
+`drive-city`, `drive-baku` and `scroll-3d-product` load [Three.js](https://threejs.org) (MIT) from a CDN; everything else is in the one file. The Baku landmarks are simplified fan-made models.
 
 MIT licensed. Use them in your own projects, paid or free.
