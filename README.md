@@ -22,6 +22,7 @@ Open it in a browser, or copy the parts you need.
 | Mission-complete checkout 💰 | [mission-checkout](mission-checkout) |
 | Car radio station switcher 📻 | [radio-dial](radio-dial) |
 | Cheat code input 🎮 | [cheat-code](cheat-code) |
+| Game-style phone that slides up, with a message notification 📱 | [phone-menu](phone-menu) |
 | Scroll zoom reveal in pure CSS (the GTA 6 website effect) 🌴 | [scroll-zoom-reveal](scroll-zoom-reveal) |
 | The same scroll zoom with GSAP + ScrollTrigger, for comparison | [scroll-zoom-reveal/gsap.html](scroll-zoom-reveal/gsap.html) |
 | Headline that fills with colour as you scroll 🌅 | [scroll-text-fill](scroll-text-fill) |
